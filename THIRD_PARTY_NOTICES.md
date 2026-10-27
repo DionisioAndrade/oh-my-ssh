@@ -1,9 +1,9 @@
-# Recursos de terceiros
+# Third-party notices
 
 ## WPF Gallery — Microsoft WPF-Samples
 
-Os arquivos `src/OhMySsh.Desktop/Assets/gallery-bloom-light.png` e `gallery-bloom-dark.png` foram obtidos do [WPF Gallery oficial](https://github.com/microsoft/WPF-Samples/tree/main/Sample%20Applications/WPFGallery/Assets), com seus nomes adaptados para o projeto.
+The files `src/OhMySsh.Desktop/Assets/gallery-bloom-light.png` and `gallery-bloom-dark.png` were obtained from the [official WPF Gallery](https://github.com/microsoft/WPF-Samples/tree/main/Sample%20Applications/WPFGallery/Assets), with their filenames adapted for this project.
 
-Originais: `win11-dashboard.light.png` e `win11-dashboard.dark.png`.
+Original filenames: `win11-dashboard.light.png` and `win11-dashboard.dark.png`.
 
-Copyright (c) 2015 Microsoft. Licença MIT. O texto integral está em [LICENSE.WPF-Samples.txt](src/OhMySsh.Desktop/Assets/LICENSE.WPF-Samples.txt) e é incluído na saída do aplicativo.
+Copyright (c) 2015 Microsoft. MIT License. The full license text is provided in [LICENSE.WPF-Samples.txt](src/OhMySsh.Desktop/Assets/LICENSE.WPF-Samples.txt) and is included in the application output.

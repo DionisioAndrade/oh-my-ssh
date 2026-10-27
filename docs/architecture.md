@@ -1,47 +1,47 @@
-# Estrutura inicial
+# Architecture
 
-## Dependências
+## Dependencies
 
-`Desktop → Core` e `Desktop → Infrastructure → Core`.
+`Desktop → Core` and `Desktop → Infrastructure → Core`.
 
-O Core contém os modelos imutáveis de perfil/arquivo e os contratos de armazenamento e navegação. Não referencia WPF. A infraestrutura implementa esses contratos. A aplicação compõe as dependências no `App` e injeta o `MainViewModel` na janela principal.
+Core contains immutable profile and file models, along with persistence and navigation contracts, without a WPF dependency. Infrastructure implements these contracts. The application wires up dependencies in `App` and injects `MainViewModel` into the main window.
 
-## Perfis de VPS
+## VPS profiles
 
-`ConnectionsPage` é a tela de entrada: `ManualConnectionView` aparece acima da biblioteca persistida de servidores. `MainWorkspaceGrid` é a página de arquivos. Salvar um perfil abre explicitamente a biblioteca por meio do evento `ProfileSaved`. A inicialização carrega os dados sem disparar esse evento.
+`ConnectionsPage` is the entry screen: `ManualConnectionView` appears above the saved server library. `MainWorkspaceGrid` is the file browser page. Saving a profile opens the library through the `ProfileSaved` event. Startup loads profiles without raising this event.
 
-Comandos dos cartões recebem um perfil e resolvem seu ID contra a coleção atual, evitando que uma ação em um cartão altere outro servidor selecionado. Cadastro, edição, exclusão e favorito persistem o snapshot antes de atualizar a interface. Cadastro/edição removem filtros somente após o sucesso, para que o perfil salvo fique visível. Os testes verificam a persistência em arquivo real e o recarregamento em uma nova instância.
+Card commands receive a profile and resolve its ID against the current collection, ensuring that an action targets the correct server regardless of the current selection. Creating, editing, deleting, and favoriting profiles persist a snapshot before updating the interface. Creating and editing clear filters only after a successful save, so the saved profile remains visible. Verification covers persistence in a real file and reloading through a new instance.
 
-`SshCommandBuilder` gera um comando de OpenSSH para PowerShell com argumentos delimitados e sem execução de processos. Essa ação só está disponível para perfis SSH/SFTP. A montagem do comando não representa uma sessão remota nem modifica verificações de identidade do servidor.
+`SshCommandBuilder` generates an OpenSSH command for PowerShell with quoted arguments, without starting a process. This action is available only for SSH/SFTP profiles. Generating the command leaves session state and SSH host identity checks unchanged.
 
-## Estado da sessão
+## Session state
 
-`IRemoteConnectionService` é o contrato de conexão; `IRemoteConnectionSession` representa a sessão confirmada e sua liberação assíncrona. `SelectedConnection` indica somente o perfil selecionado; `ActiveConnection` vem da sessão conectada e mantém seu próprio snapshot, mesmo se um perfil salvo for editado.
+`IRemoteConnectionService` defines the connection contract; `IRemoteConnectionSession` represents a confirmed session and its asynchronous cleanup. `SelectedConnection` identifies the selected profile; `ActiveConnection` comes from the connected session and retains its own snapshot, even when a saved profile is edited.
 
-O ViewModel só publica `HasActiveSession` depois de aguardar o serviço e confirmar `IsConnected`. `ActiveSessionChanged` faz o shell abrir o painel da VPS após sucesso ou retornar à tela de conexão após desconectar. A navegação bloqueia páginas de trabalho sem sessão, inclusive chamadas programáticas e histórico. O serviço padrão indisponível não retorna sessões fictícias; sessões de QA existem exclusivamente no projeto Verify.
+The ViewModel exposes `HasActiveSession` only after awaiting the service and confirming `IsConnected`. `ActiveSessionChanged` tells the shell to open the VPS dashboard after a successful connection or return to the connection screen after disconnection. Navigation requires a session to open workspace pages, including through programmatic calls and history. The default unavailable service never returns a simulated session; QA sessions exist exclusively in the Verify project.
 
-O formulário manual fornece um perfil temporário para conexão. Seu salvamento usa um comando explícito e o mesmo armazenamento de perfis; a tentativa de conexão, falha ou cancelamento não altera a biblioteca salva.
+The manual form supplies a temporary profile for a connection attempt. Saving it requires an explicit command and uses the same profile store. Connection attempts, failures, and cancellations leave the saved library unchanged.
 
-O MVVM mantém busca, seleção, persistência e navegação fora do XAML. O code-behind trata interações específicas de janela: foco, teclado, duplo clique, redimensionamento e bandeja. Os recursos visuais ficam em `Themes/Workbench.xaml`.
+MVVM keeps search, selection, persistence, and navigation outside XAML. Code-behind handles window interactions: focus, keyboard input, double-clicks, resizing, and the system tray. Visual resources live in `Themes/Workbench.xaml`.
 
-## Aparência Fluent
+## Fluent appearance
 
-O aplicativo usa o `Application.ThemeMode` do WPF .NET 10 e preserva os templates dos controles em `PresentationFramework.Fluent`. Os estilos personalizados são nomeados e derivados dos estilos nativos. `ThemeService` mantém as cores próprias em `Colors.Light.xaml` e `Colors.Dark.xaml`, acessadas por `DynamicResource`, e observa mudanças do Windows quando a opção Sistema está ativa.
+The application uses WPF .NET 10's `Application.ThemeMode` and preserves the control templates from `PresentationFramework.Fluent`. Custom styles are named and derived from native styles. `ThemeService` maintains application colors in `Colors.Light.xaml` and `Colors.Dark.xaml`, accessed through `DynamicResource`, and observes Windows theme changes when the system theme option is selected.
 
-Não se define `Window.ThemeMode` individualmente nas janelas comuns: isso introduziria estilos locais com precedência sobre os estilos da aplicação. A navegação alterna as páginas WPF sem substituir o ViewModel ou perder a listagem de arquivos e os perfis. Os fundos da galeria são recursos locais incluídos na aplicação; nenhuma página ou conteúdo web é carregado em execução.
+Regular windows inherit their theme from the application. Setting `Window.ThemeMode` individually would introduce local styles that take precedence over application styles. Navigation switches WPF pages while preserving the ViewModel, file listing, and profiles. Gallery backgrounds are bundled local resources; the application loads no web pages or web content at runtime.
 
-## Persistência
+## Persistence
 
-`JsonConnectionProfileStore` é uma implementação inicial sem dependências externas. Cada gravação é feita em um arquivo temporário no mesmo diretório e substitui o destino após a serialização e o flush. Falhas de leitura bloqueiam alterações na interface para evitar sobrescrever um arquivo recuperável com uma lista vazia. Uma única instância da aplicação por sessão evita escritores concorrentes no uso normal.
+`JsonConnectionProfileStore` is an initial implementation without external dependencies. Each write uses a temporary file in the same directory and replaces the destination after serialization and flushing. Read failures block profile changes in the interface to prevent overwriting a recoverable file with an empty list. A single application instance per Windows session prevents concurrent writers during normal use.
 
-SQLite deverá ser introduzido quando histórico de transferências e execuções exigir consultas e transações entre entidades. A migração deve importar os perfis JSON, preservar o original e verificar os IDs. Credenciais não pertencem ao arquivo de perfis nem ao banco de histórico; a integração deverá usar o cofre do Windows.
+SQLite should be introduced when transfer and execution history requires queries and transactions across entities. Migration should import JSON profiles, preserve the original file, and validate IDs. Credentials should be stored separately from profiles and history through the Windows credential store.
 
-## Próximas integrações
+## Planned integrations
 
-1. Adaptador SSH.NET para autenticação, execução de comandos, SFTP e túneis. A verificação da chave do host deve acontecer antes de aceitar uma sessão. Senhas e passphrases devem ser solicitadas e guardadas separadamente dos perfis.
-2. Adaptador FluentFTP para FTP/FTPS, mantendo o protocolo e suas capacidades explícitos. FTPS usa TLS explícito na porta 21 como padrão do cadastro.
-3. Componente dedicado de emulação VT/ANSI. O transporte de shell não substitui um emulador de terminal. Validar Unicode, PTY, `vim`, `tmux`, redimensionamento e múltiplas sessões antes de escolher o componente.
-4. Fila de transferências com cancelamento, progresso e tratamento de arquivos parciais.
-5. Executor de automações independente de abas e janelas, com etapas persistidas, timeout, histórico e política de repetição adequada a cada operação.
+1. An SSH.NET adapter for authentication, command execution, SFTP, and tunnels. Host key verification must happen before accepting a session. Passwords and passphrases should be requested and stored separately from profiles.
+2. A FluentFTP adapter for FTP/FTPS, keeping the protocol and its capabilities explicit. The profile editor defaults to explicit FTPS on port 21.
+3. A dedicated VT/ANSI terminal emulator. A shell transport requires an emulator to render interactive programs. Validate Unicode, PTY, `vim`, `tmux`, resizing, and multiple sessions before choosing the component.
+4. A transfer queue with cancellation, progress, and partial-file handling.
+5. A task automation runner independent of tabs and windows, with persisted steps, timeouts, history, and a retry policy suited to each operation.
 
-Não há adaptadores fictícios ou estados de conexão simulados no aplicativo. Os perfis utilizados nas capturas e verificações são fixtures do verificador, nunca são inseridos no armazenamento do usuário.
+The application contains no fake adapters or simulated connected states. Profiles used in screenshots and verification are fixtures belonging to the verifier and are never inserted into the user's profile store.
