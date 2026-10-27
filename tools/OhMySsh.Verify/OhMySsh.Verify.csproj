@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>OhMySsh.Verify</AssemblyName>
+    <RootNamespace>OhMySsh.Verify</RootNamespace>
+    <StartupObject>OhMySsh.Verify.Program</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OhMySsh.Desktop\OhMySsh.Desktop.csproj" />
+  </ItemGroup>
+</Project>

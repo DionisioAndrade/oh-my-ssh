@@ -1,0 +1,30 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Fluent Gallery: a quiet shell with layered, translucent work surfaces. -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F3F3F3" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="SidebarBrush" Color="#F3F3F3" />
+    <SolidColorBrush x:Key="ChromeBrush" Color="#F3F3F3" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1A1A" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#606060" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#E3E3E3" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#0067C0" />
+    <SolidColorBrush x:Key="AccentTextBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="AccentLightBrush" Color="#E8E8E8" />
+    <SolidColorBrush x:Key="NavSelectedBrush" Color="#E9E9E9" />
+    <SolidColorBrush x:Key="SubtleBrush" Color="#EEEEEE" />
+    <SolidColorBrush x:Key="CardBrush" Color="#E6FFFFFF" />
+    <SolidColorBrush x:Key="CardHoverBrush" Color="#F9FFFFFF" />
+    <SolidColorBrush x:Key="HeroCardBrush" Color="#DDFBFAFF" />
+    <SolidColorBrush x:Key="TerminalBrush" Color="#202128" />
+    <SolidColorBrush x:Key="TerminalTextBrush" Color="#D1D5DF" />
+    <SolidColorBrush x:Key="InputBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="MutedBorderBrush" Color="#ECECEC" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="#247A52" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#B42318" />
+    <SolidColorBrush x:Key="ConnectionTintBrush" Color="#F0EBFC" />
+    <SolidColorBrush x:Key="ConnectionIconBrush" Color="#7045B9" />
+    <SolidColorBrush x:Key="ConnectionCardBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ConnectionCardHoverBrush" Color="#F7F5FC" />
+    <SolidColorBrush x:Key="ConnectionCardBorderBrush" Color="#E5E2ED" />
+</ResourceDictionary>

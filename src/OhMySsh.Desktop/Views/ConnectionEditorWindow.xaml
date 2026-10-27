@@ -1,0 +1,156 @@
+<Window x:Class="OhMySsh.Desktop.Views.ConnectionEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Salvar VPS"
+        Width="580" Height="730" MinWidth="520" MinHeight="580"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        FontFamily="Segoe UI Variable, Segoe UI" FontSize="14"
+        UseLayoutRounding="True"
+        Loaded="Window_Loaded" PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <Style x:Key="FieldLabelStyle" TargetType="Label">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Padding" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="EditorTextBoxStyle" TargetType="TextBox" BasedOn="{StaticResource FluentTextBoxStyle}">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Padding="24,24,24,20">
+            <StackPanel>
+                <TextBlock x:Name="HeadingText" Text="Salvar VPS" FontSize="26" FontWeight="SemiBold" />
+                <TextBlock Text="Guarde o perfil para encontrar e reutilizar o acesso ao servidor."
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Margin="24,0,24,16" Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20" KeyboardNavigation.TabNavigation="Continue">
+                <Label Content="_Nome da VPS ou servidor" Target="{Binding ElementName=NameTextBox}"
+                       Style="{StaticResource FieldLabelStyle}" />
+                <TextBox x:Name="NameTextBox" Style="{StaticResource EditorTextBoxStyle}" MaxLength="100"
+                         ToolTip="Ex.: minha-vps" AutomationProperties.Name="Nome da VPS ou servidor" />
+
+                <Grid Margin="0,20,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="120" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <Label Content="_Protocolo" Target="{Binding ElementName=ProtocolComboBox}"
+                               Style="{StaticResource FieldLabelStyle}" />
+                        <ComboBox x:Name="ProtocolComboBox" MinHeight="38" FontSize="14" VerticalContentAlignment="Center"
+                                  Style="{StaticResource FluentComboBoxStyle}"
+                                  SelectionChanged="ProtocolComboBox_SelectionChanged"
+                                  AutomationProperties.Name="Protocolo">
+                            <ComboBoxItem Content="SSH + SFTP" Tag="Ssh" />
+                            <ComboBoxItem Content="SFTP" Tag="Sftp" />
+                            <ComboBoxItem Content="FTP" Tag="Ftp" />
+                            <ComboBoxItem Content="FTPS" Tag="Ftps" />
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <Label Content="P_orta" Target="{Binding ElementName=PortTextBox}"
+                               Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="PortTextBox" Text="22" Style="{StaticResource EditorTextBoxStyle}"
+                                 MaxLength="5" AutomationProperties.Name="Porta" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock x:Name="ProtocolDescriptionText" Text="Terminal e arquivos pela mesma conexão SSH."
+                           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                           Margin="0,8,0,0" TextWrapping="Wrap" />
+
+                <Label Content="_IP ou domínio" Target="{Binding ElementName=HostTextBox}"
+                       Style="{StaticResource FieldLabelStyle}" Margin="0,20,0,0" />
+                <TextBox x:Name="HostTextBox" Style="{StaticResource EditorTextBoxStyle}" MaxLength="255"
+                         ToolTip="Ex.: 203.0.113.10 ou servidor.exemplo.com. Informe a porta no campo separado."
+                         AutomationProperties.Name="IP ou domínio" />
+
+                <Grid Margin="0,20,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <Label x:Name="UsernameLabel" Content="_Usuário SSH" Target="{Binding ElementName=UsernameTextBox}"
+                               Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="UsernameTextBox" Style="{StaticResource EditorTextBoxStyle}"
+                                 MaxLength="128" AutomationProperties.Name="Usuário SSH" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <Label Content="_Grupo" Target="{Binding ElementName=GroupTextBox}"
+                               Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="GroupTextBox" Text="VPS" Style="{StaticResource EditorTextBoxStyle}"
+                                 MaxLength="80" AutomationProperties.Name="Grupo" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel x:Name="PrivateKeyPanel" Margin="0,20,0,0">
+                    <Label Content="_Chave privada (opcional)" Target="{Binding ElementName=PrivateKeyTextBox}"
+                           Style="{StaticResource FieldLabelStyle}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="PrivateKeyTextBox" Style="{StaticResource EditorTextBoxStyle}"
+                                 AutomationProperties.Name="Caminho da chave privada" />
+                        <Button Grid.Column="2" Content="Procurar…" MinHeight="38" Padding="12,0"
+                                Style="{DynamicResource SecondaryButtonStyle}" Click="BrowsePrivateKey_Click" />
+                    </Grid>
+                    <TextBlock Text="O perfil guarda apenas o caminho do arquivo de chave."
+                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
+                               Margin="0,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+        </Border>
+
+        <Border x:Name="ValidationPanel" Grid.Row="2" Visibility="Collapsed" Margin="24,0,24,16"
+                Background="{DynamicResource SubtleBrush}" CornerRadius="8" Padding="16,12">
+            <TextBlock x:Name="ValidationText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"
+                       AutomationProperties.LiveSetting="Assertive" />
+        </Border>
+
+        <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" Padding="24,20"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <CheckBox x:Name="FavoriteCheckBox" Content="Adicionar aos _favoritos" VerticalAlignment="Center"
+                          FontSize="12" Margin="0,0,12,0" AutomationProperties.Name="Adicionar aos favoritos" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" IsCancel="True" MinWidth="100" MinHeight="38" Margin="0,0,8,0"
+                        Style="{DynamicResource SecondaryButtonStyle}" />
+                <Button x:Name="SaveButton" Content="Salvar VPS" IsDefault="True" MinWidth="145" MinHeight="38"
+                        Style="{DynamicResource PrimaryButtonStyle}" Click="Save_Click" />
+            </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

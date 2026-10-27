@@ -1,0 +1,467 @@
+<Window x:Class="OhMySsh.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:views="clr-namespace:OhMySsh.Desktop.Views"
+        Title="oh-my-ssh" Width="1440" Height="950" MinWidth="1180" MinHeight="800"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
+        Background="{DynamicResource AppBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+        FontFamily="{StaticResource InterfaceFont}" FontSize="14" UseLayoutRounding="True"
+        Loaded="Window_Loaded" Closing="Window_Closing">
+    <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="8"/></shell:WindowChrome.WindowChrome>
+    <Window.InputBindings>
+        <KeyBinding Key="N" Modifiers="Control" Command="{Binding AddConnectionCommand}"/>
+        <KeyBinding Key="F5" Command="{Binding RefreshLocalCommand}"/>
+        <KeyBinding Key="F2" Command="{Binding EditConnectionCommand}"/>
+    </Window.InputBindings>
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/><RowDefinition Height="26"/></Grid.RowDefinitions>
+        <Grid Background="{DynamicResource ChromeBrush}">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                <Button x:Name="BackButton" Style="{StaticResource IconButtonStyle}" Click="Back_Click" ToolTip="Voltar" AutomationProperties.Name="Voltar" shell:WindowChrome.IsHitTestVisibleInChrome="True"><TextBlock Text="&#xE72B;" Style="{StaticResource GlyphStyle}" FontSize="15"/></Button>
+                <Border Width="23" Height="23" CornerRadius="4" Margin="13,0,12,0"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#9B67ED"/><GradientStop Color="#38149A" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="›_" FontFamily="{StaticResource MonoFont}" FontSize="15" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                <TextBlock Text="oh-my-ssh" FontSize="13" VerticalAlignment="Center"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="18,0" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <Ellipse Width="6" Height="6" Fill="{DynamicResource SuccessBrush}" Margin="0,0,9,0" />
+                <TextBlock Text="{Binding ActiveConnection.Name}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" MaxWidth="230" Margin="0,0,12,0" />
+                <Button Content="Desconectar" Command="{Binding DisconnectCommand}" Style="{StaticResource SecondaryButtonStyle}" MinHeight="30" Padding="10,4" FontSize="12" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button x:Name="ThemeToggleButton" Style="{StaticResource ChromeButtonStyle}" Click="ThemeToggle_Click" ToolTip="Alternar tema claro e escuro" AutomationProperties.Name="Alternar tema"><TextBlock x:Name="ThemeToggleGlyph" Text="&#xE708;" Style="{StaticResource GlyphStyle}" FontSize="15"/></Button>
+                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE921;" Click="Minimize_Click" ToolTip="Minimizar" AutomationProperties.Name="Minimizar"/>
+                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE922;" Click="Maximize_Click" ToolTip="Maximizar ou restaurar" AutomationProperties.Name="Maximizar ou restaurar"/>
+                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE8BB;" Click="Close_Click" ToolTip="Fechar" AutomationProperties.Name="Fechar"/>
+            </StackPanel>
+        </Grid>
+        <Grid x:Name="NavigationLayout" Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="265" MinWidth="235" MaxWidth="320"/><ColumnDefinition Width="3"/><ColumnDefinition Width="*" MinWidth="790"/></Grid.ColumnDefinitions>
+            <Grid Background="{DynamicResource SidebarBrush}">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <StackPanel Margin="0,8,0,10">
+                    <RadioButton x:Name="ConnectionsNav" Tag="connections" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Conexões" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="HomeNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="home" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Painel da VPS" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="FilesNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="files" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Arquivos" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="TerminalNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="terminal" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Terminal" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="TransfersNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="transfers" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Transferências" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="AutomationsNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="automations" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Automações" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Margin="16,12,16,8">
+                    <Grid Margin="1,0,0,10">
+                        <TextBlock Text="VPS salvas" Style="{StaticResource SectionLabelStyle}" VerticalAlignment="Center"/>
+                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding AddConnectionCommand}" HorizontalAlignment="Right" ToolTip="Salvar VPS (Ctrl+N)" AutomationProperties.Name="Salvar VPS"><TextBlock Text="&#xE710;" Style="{StaticResource GlyphStyle}" FontSize="13"/></Button>
+                    </Grid>
+                    <Grid>
+                        <TextBox x:Name="ConnectionSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Buscar por nome, servidor, grupo ou usuário (Ctrl+K)" AutomationProperties.Name="Buscar conexões"/>
+                        <TextBlock Text="Buscar conexões" IsHitTestVisible="False" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="12,0" VerticalAlignment="Center">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding SearchText}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <ToggleButton IsChecked="{Binding FavoritesOnly}" Style="{StaticResource FilterToggleStyle}" HorizontalAlignment="Left" Margin="0,9,0,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,7,0"/><TextBlock Text="Favoritas" FontSize="12"/><TextBlock Text="{Binding FavoriteCount}" FontSize="12" Margin="8,0,0,0"/></StackPanel></ToggleButton>
+                </StackPanel>
+                <Grid Grid.Row="2" Margin="12,0,12,8">
+                    <ListBox x:Name="ConnectionsList" ItemsSource="{Binding FilteredConnections}" SelectedItem="{Binding SelectedConnection}" ItemContainerStyle="{StaticResource ConnectionListItemStyle}" SelectionChanged="Connections_SelectionChanged" MouseDoubleClick="Connections_DoubleClick" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Conexões salvas">
+                        <ListBox.GroupStyle><GroupStyle><GroupStyle.HeaderTemplate><DataTemplate><TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="9,10,0,4"/></DataTemplate></GroupStyle.HeaderTemplate></GroupStyle></ListBox.GroupStyle>
+                        <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="27"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"/><TextBlock Text="{Binding Host}" Style="{StaticResource MutedTextStyle}" FontSize="11" Margin="0,3,0,0"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                    <TextBlock Text="Suas conexões aparecerão aqui." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="12,12,12,0" VerticalAlignment="Top" Visibility="{Binding HasConnections, Converter={StaticResource InverseBoolToVisibility}}"/>
+                </Grid>
+                <StackPanel Grid.Row="3" Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal" Margin="20,0,0,6" Visibility="{Binding HasSelectedConnection, Converter={StaticResource BoolToVisibility}}">
+                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding EditConnectionCommand}" ToolTip="Editar conexão (F2)" AutomationProperties.Name="Editar conexão"><TextBlock Text="&#xE70F;" Style="{StaticResource GlyphStyle}" FontSize="14"/></Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DeleteConnectionCommand}" ToolTip="Remover conexão" AutomationProperties.Name="Remover conexão"><TextBlock Text="&#xE74D;" Style="{StaticResource GlyphStyle}" FontSize="14"/></Button>
+                    </StackPanel>
+                    <RadioButton x:Name="SettingsNav" Tag="settings" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Configurações" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                </StackPanel>
+            </Grid>
+            <GridSplitter Grid.Column="1" Width="3" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"/>
+            <Border x:Name="ContentSurface" Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,1,0,0" CornerRadius="8,0,0,0" ClipToBounds="True" SizeChanged="ContentSurface_SizeChanged">
+                <Grid>
+                    <ScrollViewer x:Name="HomePage" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <Grid Height="510">
+                                <Image Source="Assets/gallery-bloom-light.png" Stretch="UniformToFill" VerticalAlignment="Top" Height="470"/>
+                                <Border Background="{DynamicResource SurfaceBrush}" Height="240" VerticalAlignment="Bottom"><Border.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="Transparent"/><GradientStop Color="Black" Offset="0.85"/></LinearGradientBrush></Border.OpacityMask></Border>
+                                <StackPanel Margin="40,57,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" MaxWidth="430">
+                                    <TextBlock Text="VPS conectada" Foreground="#171323" FontSize="19" Margin="0,0,0,9"/>
+                                    <TextBlock Text="{Binding ActiveConnection.Name}" Foreground="#100A1C" FontSize="36" FontWeight="SemiBold" Margin="0,0,0,14" TextWrapping="Wrap" TextTrimming="None" ToolTip="{Binding ActiveConnection.Name}"/>
+                                    <TextBlock Text="{Binding ActiveConnectionEndpoint}" Foreground="#171323" FontSize="15" FontFamily="{StaticResource MonoFont}" TextWrapping="Wrap" LineHeight="23"/>
+                                </StackPanel>
+                                <UniformGrid Columns="5" Height="214" VerticalAlignment="Bottom" Margin="26,0,26,13">
+                                    <Button Tag="connections" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Conexões"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#8751D7"/><GradientStop Color="#4915B6" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="VPS salvas" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Organize seus servidores e ambientes." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="files" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Arquivos"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#42B4F4"/><GradientStop Color="#0876C7" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="Arquivos" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Explore suas pastas e arquivos." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="terminal" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Terminal"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#526179"/><GradientStop Color="#1B263B" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="Terminal" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Um espaço para suas sessões SSH." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="transfers" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Transferências"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#39C8C5"/><GradientStop Color="#09868C" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="Transferências" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Acompanhe envios e downloads." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="automations" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Automações"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F5BA4E"/><GradientStop Color="#CF711E" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="Automações" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Suas rotinas em um único lugar." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                </UniformGrid>
+                            </Grid>
+                            <Grid Margin="26,4,26,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Grid Grid.Column="0" Grid.Row="0"><Button Tag="connections" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#9160DF"/><GradientStop Color="#5C30B6" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Gerenciar VPS salvas" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Cadastre, organize e encontre seus servidores." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="1" Grid.Row="0"><Button Tag="files" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#46BCED"/><GradientStop Color="#147DC0" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Explorar arquivos" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Navegue pelas pastas deste computador." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="0" Grid.Row="1"><Button Tag="terminal" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#66788F"/><GradientStop Color="#2A394E" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Terminal SSH" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Prepare seu ambiente para sessões remotas." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="1" Grid.Row="1"><Button Tag="transfers" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#3EC8BA"/><GradientStop Color="#15898C" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Fila de transferências" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Um espaço para acompanhar envios e downloads." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="0" Grid.Row="2"><Button Tag="automations" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F5BC55"/><GradientStop Color="#CD7F31" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Rotinas e tarefas" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Organize o trabalho que você quer automatizar." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="1" Grid.Row="2"><Button Tag="settings" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#9D79DB"/><GradientStop Color="#6847AA" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE790;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Seu aplicativo, seu jeito" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Escolha a aparência clara, escura ou do Windows." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                            </Grid>
+                            <Grid Margin="34,22,34,30">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding ConnectionCount}" FontWeight="SemiBold"/><TextBlock Text=" conexões salvas" Style="{StaticResource MutedTextStyle}" Margin="3,0,0,0"/></StackPanel>
+                                <Button Content="Salvar VPS" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddConnectionCommand}" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <Grid x:Name="ConnectionsPage" Visibility="Collapsed" Margin="34,30,34,24">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid Margin="0,0,0,25">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,20,0">
+                                <TextBlock Text="Suas conexões" FontSize="30" FontWeight="SemiBold" />
+                                <TextBlock Text="Uma nova conexão ou seus servidores de sempre. Escolha por onde começar." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            </StackPanel>
+                            <Button x:Name="AddVpsButton" Grid.Column="1" Command="{Binding AddConnectionCommand}" Style="{StaticResource PrimaryButtonStyle}" VerticalAlignment="Center" ToolTip="Salvar VPS (Ctrl+N)">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" Style="{StaticResource GlyphStyle}" FontSize="14" Margin="0,0,9,0" /><TextBlock Text="Salvar nova VPS" /></StackPanel>
+                            </Button>
+                        </Grid>
+                        <views:ManualConnectionView x:Name="ManualConnectionPanel" Grid.Row="1" Margin="0,0,0,23" />
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,14">
+                            <TextBlock Text="VPS salvas" FontSize="20" FontWeight="SemiBold" />
+                            <Border Background="{DynamicResource SubtleBrush}" CornerRadius="5" Padding="8,3" Margin="10,0,0,0" VerticalAlignment="Center"><TextBlock Text="{Binding ConnectionCount}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" /></Border>
+                        </StackPanel>
+                        <Grid Grid.Row="3" Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <Grid Width="420" MaxWidth="420" HorizontalAlignment="Left" Margin="0,0,16,0">
+                                <TextBox x:Name="VpsSearchBox" Style="{StaticResource FluentTextBoxStyle}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="34,7,30,7" AutomationProperties.Name="Buscar VPS salvas" />
+                                <TextBlock Text="&#xE721;" Style="{StaticResource GlyphStyle}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="12,0,0,0" HorizontalAlignment="Left" IsHitTestVisible="False" />
+                                <TextBlock Text="Buscar por nome, IP, usuário ou grupo" Margin="34,0,30,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsHitTestVisible="False">
+                                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding SearchText}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ToggleButton IsChecked="{Binding FavoritesOnly}" Style="{StaticResource FilterToggleStyle}" Margin="0,0,14,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" Style="{StaticResource GlyphStyle}" FontSize="13" Margin="0,0,7,0" /><TextBlock Text="Só favoritas" /></StackPanel></ToggleButton>
+                                <TextBlock Text="{Binding FilteredConnectionCount, StringFormat='Total: {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="4">
+                            <ListBox x:Name="SavedProfilesList" ItemsSource="{Binding FilteredConnections}" SelectedItem="{Binding SelectedConnection}" BorderThickness="0" Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizingWhenGrouping="True" VirtualizingPanel.ScrollUnit="Pixel" MouseDoubleClick="Connections_DoubleClick" AutomationProperties.Name="VPS e servidores salvos">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource ConnectionListItemStyle}">
+                                        <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,0,8" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.GroupStyle><GroupStyle><GroupStyle.HeaderTemplate><DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12"><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" /><TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBlock Text="{Binding ItemCount, StringFormat='  ·  {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" /></StackPanel>
+                                </DataTemplate></GroupStyle.HeaderTemplate></GroupStyle></ListBox.GroupStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="ProfileCard" Background="{DynamicResource ConnectionCardBrush}" BorderBrush="{DynamicResource ConnectionCardBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="18,16">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="42" />
+                                                    <ColumnDefinition Width="16" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="18" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Width="42" Height="42" Background="{DynamicResource ConnectionTintBrush}" CornerRadius="10" VerticalAlignment="Center">
+                                                    <TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="22" Foreground="{DynamicResource ConnectionIconBrush}" HorizontalAlignment="Center" />
+                                                </Border>
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <DockPanel>
+                                                        <Border DockPanel.Dock="Right" Background="{DynamicResource SubtleBrush}" CornerRadius="4" Padding="7,3" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Protocol, Converter={StaticResource ProtocolToLabel}}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                        </Border>
+                                                        <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" ToolTip="{Binding Name}" VerticalAlignment="Center" />
+                                                    </DockPanel>
+                                                    <TextBlock Text="{Binding Host}" FontFamily="{StaticResource MonoFont}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,7,0,0" ToolTip="{Binding Host}" />
+                                                    <WrapPanel Margin="0,6,0,0">
+                                                        <TextBlock Text="{Binding Username}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" MaxWidth="160" Margin="0,0,12,0" />
+                                                        <TextBlock Text="{Binding Port, StringFormat='Porta {0}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    </WrapPanel>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Button Content="Conectar" Command="{Binding DataContext.ConnectCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" AutomationProperties.Name="{Binding Name, StringFormat='Conectar a {0}'}" />
+                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="Marcar ou desmarcar favorita" AutomationProperties.Name="Alternar VPS favorita">
+                                                        <TextBlock FontSize="15">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock" BasedOn="{StaticResource GlyphStyle}">
+                                                                    <Setter Property="Text" Value="&#xE734;" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                                    <Style.Triggers><DataTrigger Binding="{Binding IsFavorite}" Value="True"><Setter Property="Text" Value="&#xE735;" /><Setter Property="Foreground" Value="{DynamicResource ConnectionIconBrush}" /></DataTrigger></Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Button>
+                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.EditConnectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="Editar VPS" AutomationProperties.Name="{Binding Name, StringFormat='Editar {0}'}">
+                                                        <TextBlock Text="&#xE70F;" Style="{StaticResource GlyphStyle}" FontSize="14" />
+                                                    </Button>
+                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.CopySshCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="Copiar comando SSH" AutomationProperties.Name="Copiar comando SSH">
+                                                        <TextBlock Text="&#xE8C8;" Style="{StaticResource GlyphStyle}" FontSize="14" />
+                                                    </Button>
+                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.DeleteConnectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="Remover VPS salva" AutomationProperties.Name="Remover VPS salva">
+                                                        <TextBlock Text="&#xE74D;" Style="{StaticResource GlyphStyle}" FontSize="14" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True"><Setter TargetName="ProfileCard" Property="Background" Value="{DynamicResource ConnectionCardHoverBrush}" /></DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType={x:Type ListBoxItem}}}" Value="True"><Setter TargetName="ProfileCard" Property="BorderBrush" Value="{DynamicResource ConnectionIconBrush}" /></DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="430" Margin="16" Visibility="{Binding HasConnections, Converter={StaticResource InverseBoolToVisibility}}">
+                                <TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,0,0,10" />
+                                <TextBlock Text="Nenhuma VPS salva" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" />
+                                <TextBlock Text="Use Salvar nova VPS ou salve os dados do formulário acima." Style="{StaticResource MutedTextStyle}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380" Margin="25">
+                                <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasConnections}" Value="True" /><Condition Binding="{Binding HasFilteredConnections}" Value="False" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></StackPanel.Style>
+                                <TextBlock Text="Nenhuma VPS encontrada" FontSize="20" FontWeight="SemiBold" TextAlignment="Center" /><TextBlock Text="Altere a busca ou desative o filtro de favoritas." Style="{StaticResource MutedTextStyle}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,10,0,0" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Grid.Row="5" Text="Os perfis ficam neste computador e continuam disponíveis ao reabrir o aplicativo." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,15,0,0" />
+                    </Grid>
+                                    <Grid x:Name="MainWorkspaceGrid" Visibility="Collapsed" Margin="24,0,24,20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="68" />
+                        <RowDefinition Height="3*" MinHeight="235" />
+                        <RowDefinition Height="6" />
+                        <RowDefinition Height="1.6*" MinHeight="135" />
+                        <RowDefinition Height="6" />
+                        <RowDefinition Height="1*" MinHeight="95" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding SelectedConnectionTitle}" FontSize="22" FontWeight="SemiBold" MaxWidth="450" />
+                                <Border Background="{DynamicResource SubtleBrush}" CornerRadius="3" Padding="6,3" Margin="10,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding SelectedProtocolLabel}" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="SemiBold" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding SelectedConnectionEndpoint}" FontFamily="{StaticResource MonoFont}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Command="{Binding CopyEndpointCommand}" Style="{StaticResource IconButtonStyle}" Margin="0,0,10,0" ToolTip="Copiar endereço" AutomationProperties.Name="Copiar endereço da conexão">
+                                <TextBlock Text="&#xE8C8;" Style="{StaticResource GlyphStyle}" FontSize="15" />
+                            </Button>
+                            <Button Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryButtonStyle}" MinWidth="112" ToolTip="Preparar acesso à conexão selecionada">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE839;" Style="{StaticResource GlyphStyle}" FontSize="14" Margin="0,0,8,0" />
+                                    <TextBlock Text="Conectar" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="370" /><ColumnDefinition Width="6" /><ColumnDefinition Width="*" MinWidth="330" /></Grid.ColumnDefinitions>
+                        <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="43" /><RowDefinition Height="47" /><RowDefinition Height="*" /><RowDefinition Height="27" /></Grid.RowDefinitions>
+                                <Grid Margin="13,0,9,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="&#xE7F8;" Style="{StaticResource GlyphStyle}" FontSize="15" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,9,0" />
+                                        <TextBlock Text="Arquivos locais" FontWeight="SemiBold" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding BrowseLocalCommand}" ToolTip="Escolher pasta local" AutomationProperties.Name="Escolher pasta local">
+                                            <TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="14" />
+                                        </Button>
+                                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding RefreshLocalCommand}" ToolTip="Atualizar (F5)" AutomationProperties.Name="Atualizar arquivos locais">
+                                            <TextBlock Text="&#xE72C;" Style="{StaticResource GlyphStyle}" FontSize="14" />
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Grid.Row="1" Margin="9,1,9,9">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <Button Command="{Binding GoUpCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="Pasta acima" AutomationProperties.Name="Abrir pasta acima">
+                                        <TextBlock Text="&#xE74A;" Style="{StaticResource GlyphStyle}" FontSize="13" />
+                                    </Button>
+                                    <TextBox Grid.Column="1" Text="{Binding LocalPath, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="9,6" ToolTip="{Binding LocalPath}" AutomationProperties.Name="Caminho da pasta local">
+                                        <TextBox.InputBindings><KeyBinding Key="Enter" Command="{Binding NavigateLocalCommand}" /></TextBox.InputBindings>
+                                    </TextBox>
+                                </Grid>
+                                <Grid Grid.Row="2">
+                                    <DataGrid x:Name="LocalFilesGrid" Style="{StaticResource FileGridStyle}" AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}" ItemsSource="{Binding LocalEntries}" SelectedItem="{Binding SelectedLocalEntry}"
+                                              MouseDoubleClick="LocalFiles_DoubleClick" PreviewKeyDown="LocalFiles_KeyDown" AutomationProperties.Name="Arquivos da pasta local">
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="Nome" Width="*" MinWidth="145" SortMemberPath="Name">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding IconGlyph}" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,9,0" />
+                                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" ToolTip="{Binding Name}" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Tamanho" Binding="{Binding SizeLabel}" SortMemberPath="Size" Width="84" />
+                                            <DataGridTextColumn Header="Modificado" Binding="{Binding ModifiedLabel}" SortMemberPath="LastModified" Width="132" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Text="Esta pasta está vazia." Style="{StaticResource MutedTextStyle}" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="{Binding HasLocalEntries, Converter={StaticResource InverseBoolToVisibility}}" />
+                                </Grid>
+                                <Border Grid.Row="3" BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,1,0,0" Padding="12,5">
+                                    <TextBlock Text="{Binding LocalSummary}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
+                        <Border x:Name="RemoteFilesPanel" Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                            <Grid>
+                                <Grid.RowDefinitions><RowDefinition Height="43" /><RowDefinition Height="47" /><RowDefinition Height="*" /><RowDefinition Height="27" /></Grid.RowDefinitions>
+                                <Grid Margin="13,0,14,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="15" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,9,0" />
+                                        <TextBlock Text="Arquivos remotos" FontWeight="SemiBold" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Ellipse Width="5" Height="5" Fill="#A0ACBC" Margin="0,0,6,0" />
+                                        <TextBlock Text="Sessão conectada" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                                <Border Grid.Row="1" Background="{DynamicResource SubtleBrush}" BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="1" CornerRadius="4" Margin="10,1,10,9" Padding="11,8">
+                                    <TextBlock Text="/" Foreground="#A2ADBB" FontFamily="{StaticResource MonoFont}" FontSize="11" />
+                                </Border>
+                                <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="285" Margin="25,5,25,25">
+                                    <Border Width="53" Height="53" CornerRadius="12" Background="{DynamicResource SubtleBrush}" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                        <TextBlock Text="&#xE8CE;" Style="{StaticResource GlyphStyle}" FontSize="24" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="Um lugar para seus arquivos remotos" FontSize="14" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding RemoteHint}" TextWrapping="Wrap" TextAlignment="Center" Style="{StaticResource MutedTextStyle}" LineHeight="19" Margin="0,9,0,0" />
+                                </StackPanel>
+                                <Border Grid.Row="3" BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,1,0,0" Padding="12,5">
+                                    <TextBlock Text="{Binding ActiveConnectionEndpoint}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
+
+                    <Border Grid.Row="3" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Background="{DynamicResource SurfaceBrush}" ClipToBounds="True">
+                        <TabControl x:Name="WorkspaceTabs" Style="{StaticResource FluentTabControlStyle}" ItemContainerStyle="{StaticResource FluentTabItemStyle}">
+                            <TabItem>
+                                <TabItem.Header>
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="Terminal" FontSize="12" /></StackPanel>
+                                </TabItem.Header>
+                                <Border Background="{DynamicResource TerminalBrush}" Padding="19,15">
+                                    <Grid>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                        <DockPanel Margin="0,0,0,13">
+                                            <TextBlock Text="SESSÃO SSH" Foreground="#8193AC" FontSize="9" FontWeight="SemiBold" />
+                                            <TextBlock Text="Emulação de terminal indisponível" Foreground="#7D8EA4" FontSize="10" HorizontalAlignment="Right" />
+                                        </DockPanel>
+                                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                            <TextBlock Text="{Binding TerminalMessage}" FontFamily="{StaticResource MonoFont}" FontSize="11" Foreground="#B5C5D9" TextWrapping="Wrap" LineHeight="18" />
+                                        </ScrollViewer>
+                                    </Grid>
+                                </Border>
+                            </TabItem>
+                            <TabItem Header="Atividade">
+                                <Grid Background="{DynamicResource SurfaceBrush}" Margin="18">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding StatusMessage}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding SessionSummary}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </TabItem>
+                            <TabItem Header="Automações">
+                                <Grid Background="{DynamicResource SurfaceBrush}" Margin="18">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Rotinas para o seu dia a dia" FontWeight="SemiBold" FontSize="14" />
+                                        <TextBlock Text="O editor e a execução de tarefas estarão disponíveis em uma próxima versão." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </TabItem>
+                        </TabControl>
+                    </Border>
+                    <GridSplitter Grid.Row="4" Height="6" HorizontalAlignment="Stretch" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
+                    <Border x:Name="TransferQueuePanel" Grid.Row="5" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Background="{DynamicResource SurfaceBrush}">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="38" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                            <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Padding="14,0">
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="#6E84A2" Margin="0,0,9,0" />
+                                        <TextBlock Text="Transferências" FontSize="12" FontWeight="SemiBold" />
+                                        <Border Background="{DynamicResource SubtleBrush}" CornerRadius="3" Padding="6,2" Margin="9,0,0,0"><TextBlock Text="0" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" /></Border>
+                                    </StackPanel>
+                                    <TextBlock Text="Fila vazia" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="20" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,0" />
+                                <TextBlock Text="As transferências aparecerão aqui quando você enviar ou baixar arquivos." Style="{StaticResource MutedTextStyle}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+                    <Grid x:Name="TerminalPage" Visibility="Collapsed" Margin="34,30">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <StackPanel Margin="0,0,0,24"><TextBlock Text="Terminal" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Um espaço para suas sessões SSH." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
+                        <Border Grid.Row="1" Background="{DynamicResource TerminalBrush}" CornerRadius="8" Padding="25">
+                            <StackPanel><TextBlock Text="{Binding ActiveConnectionEndpoint}" Foreground="{DynamicResource TerminalTextBrush}" FontSize="13" Margin="0,0,0,22"/><TextBlock Text="{Binding TerminalMessage}" Foreground="{DynamicResource TerminalTextBrush}" FontFamily="{StaticResource MonoFont}" FontSize="13" TextWrapping="Wrap" LineHeight="23"/></StackPanel>
+                        </Border>
+                    </Grid>
+                    <Grid x:Name="TransfersPage" Visibility="Collapsed" Margin="34,30">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <StackPanel><TextBlock Text="Transferências" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Seus envios e downloads, em um só lugar." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
+                        <Border Grid.Row="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,25,0,0">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="390" Margin="25">
+                                <TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="47" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,0,0,24"/>
+                                <TextBlock Text="Nenhuma transferência na fila" FontSize="21" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Os envios e downloads aparecerão aqui quando o acesso remoto estiver disponível." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Grid x:Name="AutomationsPage" Visibility="Collapsed" Margin="34,30">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <StackPanel><TextBlock Text="Automações" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Mais tempo para o que importa." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
+                        <Border Grid.Row="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,25,0,0" Padding="32">
+                            <StackPanel VerticalAlignment="Center" MaxWidth="460">
+                                <TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" FontSize="44" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,25"/>
+                                <TextBlock Text="Suas rotinas, simplificadas" FontSize="24" FontWeight="SemiBold"/>
+                                <TextBlock Text="Enviar arquivos, executar comandos e buscar resultados. O editor e a execução de tarefas estarão disponíveis em uma próxima versão." TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" FontSize="14" LineHeight="23" Margin="0,14,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <ScrollViewer x:Name="SettingsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="34,30">
+                            <TextBlock Text="Configurações" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,30"/>
+                            <TextBlock Text="Personalização" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,14"/>
+                            <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="22">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,22,0"><TextBlock Text="Tema do aplicativo" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="Escolha como o oh-my-ssh aparece para você." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
+                                    <ComboBox x:Name="ThemePicker" Grid.Column="1" Width="210" VerticalAlignment="Center" SelectionChanged="ThemePicker_SelectionChanged" AutomationProperties.Name="Tema do aplicativo"><ComboBoxItem Content="Usar tema do Windows" Tag="System"/><ComboBoxItem Content="Claro" Tag="Light"/><ComboBoxItem Content="Escuro" Tag="Dark"/></ComboBox>
+                                </Grid>
+                            </Border>
+                            <TextBlock Text="Aplicativo" FontSize="18" FontWeight="SemiBold" Margin="0,30,0,14"/>
+                            <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="22">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Continuar na bandeja" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="Mantenha o aplicativo aberto na área de notificação." Style="{StaticResource MutedTextStyle}" Margin="0,6,12,0" TextWrapping="Wrap"/></StackPanel><Button Grid.Column="1" Content="Enviar para bandeja" Click="HideToTray_Click" VerticalAlignment="Center"/></Grid>
+                            </Border>
+                            <Button Content="Sobre o oh-my-ssh" Click="About_Click" HorizontalAlignment="Left" Margin="0,24,0,0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+        <Border Grid.Row="2" Background="{DynamicResource AppBackgroundBrush}" Padding="16,0">
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding StatusMessage}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" ToolTip="{Binding StatusMessage}"/>
+                <TextBlock Grid.Column="1" Text="oh-my-ssh  ·  0.1" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="15,0,0,0"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

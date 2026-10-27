@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>OhMySsh</AssemblyName>
+    <RootNamespace>OhMySsh.Desktop</RootNamespace>
+    <Product>oh-my-ssh</Product>
+    <Description>Gerenciador desktop de conexões SSH e transferência de arquivos.</Description>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\*.png" />
+    <None Update="Assets\LICENSE.WPF-Samples.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+    <ProjectReference Include="..\OhMySsh.Core\OhMySsh.Core.csproj" />
+    <ProjectReference Include="..\OhMySsh.Infrastructure\OhMySsh.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
