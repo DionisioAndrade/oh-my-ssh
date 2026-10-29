@@ -82,7 +82,7 @@ internal static class Program
     }
 }
 
-internal sealed class VerificationRunner(Application application, string outputDirectory)
+internal sealed partial class VerificationRunner(Application application, string outputDirectory)
 {
     private readonly List<CheckResult> _checks = [];
     private readonly List<string> _screenshots = [];
@@ -124,6 +124,11 @@ internal sealed class VerificationRunner(Application application, string outputD
         await CheckAsync("Connection: English diagnostic messages and sanitized failures", VerifyEnglishConnectionDiagnosticsAsync);
         await CheckAsync("SSH dialogs: secrets, manual credentials, trust decisions, and themes", VerifySshDialogsAsync);
         await CheckAsync("SSH prompts: cancellation closes pending credential and host dialogs", VerifyPromptCancellationAsync);
+        await CheckAsync("SFTP browser: initialization, failed navigation, and stale results", VerifyRemoteBrowsingAsync);
+        await CheckAsync("SFTP queue: serial work, progress, cancellation, and profile isolation", VerifyTransferQueueAsync);
+        await CheckAsync("SFTP overwrite: rejection and pending-prompt cancellation", VerifyTransferOverwriteAsync);
+        await CheckAsync("SFTP lifecycle: disconnect cancels work and clears remote state", VerifyTransferDisconnectionAsync);
+        await CheckAsync("SFTP interface: populated remote files and queue in both themes", CaptureSftpWorkspaceAsync);
         await CheckAsync("XAML: empty and saved connection center in both themes", async () =>
         {
             await CaptureConnectionsPageAsync(false);
@@ -757,7 +762,7 @@ internal sealed class VerificationRunner(Application application, string outputD
         // Keep native provider-created dialogs off the user's desktop during this QA check.
         EventManager.RegisterClassHandler(typeof(Window), Window.LoadedEvent, new RoutedEventHandler((sender, _) =>
         {
-            if (sender is SshCredentialsWindow or HostKeyVerificationWindow) PrepareHiddenWindow((Window)sender);
+            if (sender is SshCredentialsWindow or HostKeyVerificationWindow or OverwriteConfirmationWindow) PrepareHiddenWindow((Window)sender);
         }));
         var provider = new DesktopSshInteractionService(new WindowsCredentialStore($"OhMySsh.Verify.{Guid.NewGuid():N}"),
             _ => false, application.Dispatcher);
@@ -1234,6 +1239,7 @@ internal sealed class QaRemoteConnectionSession(ConnectionProfile profile, bool 
     private int _disposeCalls;
 
     public ConnectionProfile Profile { get; } = profile;
+    public IRemoteFileService? Files { get; init; }
     public bool IsConnected => Volatile.Read(ref _isConnected) == 1;
     public int DisposeCalls => Volatile.Read(ref _disposeCalls);
     public Task Disposed => _disposed.Task;
@@ -1264,6 +1270,11 @@ internal sealed class RecordingInteractions : IDesktopInteractionService
     public int EditCalls { get; private set; }
     public bool AllowDelete { get; set; } = true;
     public int ConfirmDeleteCalls { get; private set; }
+    public Queue<string?> UploadFiles { get; } = new();
+    public Queue<string?> DownloadFiles { get; } = new();
+    public bool AllowOverwrite { get; set; }
+    public int OverwriteCalls { get; private set; }
+    public Func<string, bool, CancellationToken, Task<bool>>? OverwriteHandler { get; set; }
     public ConnectionProfile? EditConnection(ConnectionProfile? existing)
     {
         EditCalls++;
@@ -1276,6 +1287,13 @@ internal sealed class RecordingInteractions : IDesktopInteractionService
         return AllowDelete;
     }
     public string? PickLocalFolder(string initialPath) => null;
+    public string? PickUploadFile(string initialDirectory) => UploadFiles.TryDequeue(out var path) ? path : null;
+    public string? PickDownloadFile(string suggestedFileName, string initialDirectory) => DownloadFiles.TryDequeue(out var path) ? path : null;
+    public Task<bool> ConfirmOverwriteAsync(string destination, bool isRemote, CancellationToken cancellationToken = default)
+    {
+        OverwriteCalls++;
+        return OverwriteHandler?.Invoke(destination, isRemote, cancellationToken) ?? Task.FromResult(AllowOverwrite);
+    }
     public void ShowInformation(string title, string message) => Messages.Add($"{title}: {message}");
     public void CopyToClipboard(string text) => ClipboardText = text;
 }

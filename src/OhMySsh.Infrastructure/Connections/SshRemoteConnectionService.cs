@@ -122,7 +122,8 @@ public sealed class SshRemoteConnectionService(
             }
 
             attemptToken.ThrowIfCancellationRequested();
-            var session = new SshRemoteConnectionSession(snapshot, client, authentication!, privateKey, hostValidation.Handle);
+            var session = new SshRemoteConnectionSession(snapshot, client, authentication!, privateKey,
+                hostValidation.Handle, hostValidation.AcceptedIdentity!.Sha256Fingerprint);
             handedOff = true;
             return session;
         }
@@ -282,6 +283,21 @@ public sealed class SshRemoteConnectionService(
         catch (Exception exception) when (exception is not OutOfMemoryException) { }
     }
 
+    internal static ConnectionInfo CreateFileConnectionInfo(ConnectionProfile profile,
+        AuthenticationMethod sessionAuthentication, PrivateKeyFile? privateKey, CancellationToken cancellationToken)
+    {
+        // Each transport owns its authentication state and cancellation registration. Only the parsed
+        // private key is shared, and the parent session keeps it alive until child cleanup finishes.
+        AuthenticationMethod authentication = sessionAuthentication is CancelablePasswordAuthentication password
+            ? password.CopyFor(cancellationToken)
+            : new CancelablePrivateKeyAuthentication(profile.Username, privateKey!, cancellationToken);
+        return new ConnectionInfo(profile.Host, profile.Port, profile.Username, authentication)
+        {
+            Timeout = TimeSpan.FromSeconds(profile.ConnectionTimeoutSeconds),
+            ChannelCloseTimeout = TimeSpan.FromSeconds(1)
+        };
+    }
+
     private sealed class CancelablePasswordAuthentication : PasswordAuthenticationMethod
     {
         private readonly byte[] _password;
@@ -303,6 +319,9 @@ public sealed class SshRemoteConnectionService(
             using var cancellation = new AuthenticationCancellation(session, _cancellationToken);
             return base.Authenticate(session);
         }
+
+        public AuthenticationMethod CopyFor(CancellationToken cancellationToken)
+            => new CancelablePasswordAuthentication(Username, _password.ToArray(), cancellationToken);
 
         protected override void Dispose(bool disposing)
         {
@@ -348,6 +367,7 @@ public sealed class SshRemoteConnectionService(
         IHostKeyPrompt prompt, IKnownHostStore store, CancellationToken cancellationToken)
     {
         private SshHostIdentity? _acceptedIdentity;
+        public SshHostIdentity? AcceptedIdentity => _acceptedIdentity;
         public RemoteConnectionException? Failure { get; private set; }
 
         public void Handle(object? sender, HostKeyEventArgs args)

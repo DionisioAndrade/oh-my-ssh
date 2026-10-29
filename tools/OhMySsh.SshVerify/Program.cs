@@ -43,7 +43,7 @@ internal static class Program
     }
 }
 
-internal sealed class SshVerificationSuite(SshFixture fixture, string output)
+internal sealed partial class SshVerificationSuite(SshFixture fixture, string output)
 {
     private readonly List<CheckResult> _checks = [];
     private readonly List<SshRemoteConnectionService> _services = [];
@@ -214,6 +214,8 @@ internal sealed class SshVerificationSuite(SshFixture fixture, string output)
             Require(!json.Contains(fixture.Info.Password, StringComparison.Ordinal) && !json.Contains(fixture.Info.Passphrase, StringComparison.Ordinal)
                 && !json.Contains("PRIVATE KEY", StringComparison.Ordinal), "Profile JSON contains authentication material.");
         });
+        await RunSftpChecksAsync();
+
         await CheckAsync("Changed host keys are blocked without a replacement prompt", async () =>
         {
             var hosts = Hosts("changed-key");
@@ -327,9 +329,9 @@ internal sealed class SshVerificationSuite(SshFixture fixture, string output)
 }
 
 internal sealed record CheckResult(string Name, bool Passed, long DurationMs, string? Error);
-internal sealed record FixtureInfo(int Port, int StallPort, string Password, string Passphrase, string PlainKeyPath, string EncryptedKeyPath, string RsaKeyPath, string Fingerprint);
+internal sealed record FixtureInfo(int Port, int StallPort, string Password, string Passphrase, string PlainKeyPath, string EncryptedKeyPath, string RsaKeyPath, string Fingerprint, int NoSftpPort, string SftpRoot);
 
-internal sealed class SshFixture(Process process, FixtureInfo info) : IAsyncDisposable
+internal sealed class SshFixture(Process process, FixtureInfo info, Task<string> diagnosticDrain) : IAsyncDisposable
 {
     public FixtureInfo Info { get; } = info;
     public static async Task<SshFixture> StartAsync(string python, string output)
@@ -339,15 +341,18 @@ internal sealed class SshFixture(Process process, FixtureInfo info) : IAsyncDisp
         start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "ssh_fixture.py"));
         start.ArgumentList.Add(Path.Combine(output, "fixture"));
         var process = Process.Start(start) ?? throw new InvalidOperationException("The local SSH fixture could not start.");
+        var diagnosticDrain = process.StandardError.ReadToEndAsync();
         try
         {
             var ready = await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(20));
             var info = JsonSerializer.Deserialize<FixtureInfo>(ready ?? "") ?? throw new InvalidOperationException("The SSH fixture did not become ready.");
-            return new SshFixture(process, info);
+            return new SshFixture(process, info, diagnosticDrain);
         }
         catch
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+            await diagnosticDrain;
             process.Dispose();
             throw;
         }
@@ -370,6 +375,7 @@ internal sealed class SshFixture(Process process, FixtureInfo info) : IAsyncDisp
                 await CommandAsync("stop");
                 await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
             }
+            await diagnosticDrain;
         }
         finally
         {

@@ -239,7 +239,7 @@
                         <RowDefinition Height="6" />
                         <RowDefinition Height="1.6*" MinHeight="135" />
                         <RowDefinition Height="6" />
-                        <RowDefinition Height="1*" MinHeight="95" />
+                        <RowDefinition Height="1.25*" MinHeight="145" />
                     </Grid.RowDefinitions>
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -276,6 +276,9 @@
                                         <TextBlock Text="Arquivos locais" FontWeight="SemiBold" FontSize="12" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Button x:Name="UploadFileButton" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" MinHeight="30" FontSize="12" Margin="0,0,4,0" Command="{Binding UploadCommand}" ToolTip="Enviar arquivo para a VPS" AutomationProperties.Name="Enviar arquivo para a VPS">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE898;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,6,0" /><TextBlock Text="Enviar" /></StackPanel>
+                                        </Button>
                                         <Button Style="{StaticResource IconButtonStyle}" Command="{Binding BrowseLocalCommand}" ToolTip="Escolher pasta local" AutomationProperties.Name="Escolher pasta local">
                                             <TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                         </Button>
@@ -321,29 +324,47 @@
                         <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
                         <Border x:Name="RemoteFilesPanel" Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
                             <Grid>
-                                <Grid.RowDefinitions><RowDefinition Height="43" /><RowDefinition Height="47" /><RowDefinition Height="*" /><RowDefinition Height="27" /></Grid.RowDefinitions>
-                                <Grid Margin="13,0,14,0">
+                                <Grid.RowDefinitions><RowDefinition Height="43" /><RowDefinition Height="47" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="27" /></Grid.RowDefinitions>
+                                <Grid Margin="13,0,9,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="15" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,9,0" />
                                         <TextBlock Text="Arquivos remotos" FontWeight="SemiBold" FontSize="12" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Ellipse Width="5" Height="5" Fill="#A0ACBC" Margin="0,0,6,0" />
-                                        <TextBlock Text="Sessão conectada" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <Button x:Name="DownloadFileButton" Command="{Binding DownloadCommand}" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" MinHeight="30" FontSize="12" Margin="0,0,4,0" ToolTip="Baixar arquivo selecionado" AutomationProperties.Name="Baixar arquivo remoto">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,6,0" /><TextBlock Text="Baixar" /></StackPanel>
+                                        </Button>
+                                        <Button Command="{Binding RefreshRemoteCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="Atualizar pasta remota" AutomationProperties.Name="Atualizar arquivos remotos">
+                                            <TextBlock Text="&#xE72C;" Style="{StaticResource GlyphStyle}" FontSize="14" />
+                                        </Button>
                                     </StackPanel>
                                 </Grid>
-                                <Border Grid.Row="1" Background="{DynamicResource SubtleBrush}" BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="1" CornerRadius="4" Margin="10,1,10,9" Padding="11,8">
-                                    <TextBlock Text="/" Foreground="#A2ADBB" FontFamily="{StaticResource MonoFont}" FontSize="11" />
-                                </Border>
-                                <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="285" Margin="25,5,25,25">
-                                    <Border Width="53" Height="53" CornerRadius="12" Background="{DynamicResource SubtleBrush}" HorizontalAlignment="Center" Margin="0,0,0,16">
-                                        <TextBlock Text="&#xE8CE;" Style="{StaticResource GlyphStyle}" FontSize="24" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock Text="Um lugar para seus arquivos remotos" FontSize="14" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding RemoteHint}" TextWrapping="Wrap" TextAlignment="Center" Style="{StaticResource MutedTextStyle}" LineHeight="19" Margin="0,9,0,0" />
-                                </StackPanel>
-                                <Border Grid.Row="3" BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,1,0,0" Padding="12,5">
-                                    <TextBlock Text="{Binding ActiveConnectionEndpoint}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <Grid Grid.Row="1" Margin="9,1,9,9">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <Button Command="{Binding GoUpRemoteCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="Pasta remota acima" AutomationProperties.Name="Abrir pasta remota acima">
+                                        <TextBlock Text="&#xE74A;" Style="{StaticResource GlyphStyle}" FontSize="13" />
+                                    </Button>
+                                    <TextBox x:Name="RemotePathBox" Grid.Column="1" Text="{Binding RemotePath, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="9,6" IsEnabled="{Binding HasRemoteFileService}" ToolTip="{Binding RemotePath}" AutomationProperties.Name="Caminho da pasta remota">
+                                        <TextBox.InputBindings><KeyBinding Key="Enter" Command="{Binding NavigateRemoteCommand}" /></TextBox.InputBindings>
+                                    </TextBox>
+                                    <ProgressBar Grid.ColumnSpan="2" Height="2" VerticalAlignment="Bottom" IsIndeterminate="True" Visibility="{Binding IsRemoteLoading, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="Carregando pasta remota" />
+                                </Grid>
+                                <TextBlock x:Name="RemoteErrorText" Grid.Row="2" Text="{Binding RemoteError}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="11" Margin="12,0,12,8" Visibility="{Binding HasRemoteError, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
+                                <Grid Grid.Row="3">
+                                    <DataGrid x:Name="RemoteFilesGrid" Style="{StaticResource FileGridStyle}" AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}" ItemsSource="{Binding RemoteEntries}" SelectedItem="{Binding SelectedRemoteEntry}" MouseDoubleClick="RemoteFiles_DoubleClick" PreviewKeyDown="RemoteFiles_KeyDown" AutomationProperties.Name="Arquivos da pasta remota">
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="Nome" Width="*" MinWidth="125" SortMemberPath="Name">
+                                                <DataGridTemplateColumn.CellTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock Text="{Binding IconGlyph}" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" ToolTip="{Binding Name}" /></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Tipo" Binding="{Binding TypeLabel}" Width="85" />
+                                            <DataGridTextColumn Header="Tamanho" Binding="{Binding SizeLabel}" Width="90" SortMemberPath="Size" />
+                                            <DataGridTextColumn Header="Modificado" Binding="{Binding ModifiedLabel}" Width="125" SortMemberPath="LastModified" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Text="{Binding RemoteStateMessage}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="280" Margin="16,38,16,12" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False" Visibility="{Binding HasRemoteEntries, Converter={StaticResource InverseBoolToVisibility}}" />
+                                </Grid>
+                                <Border Grid.Row="4" BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,1,0,0" Padding="12,5">
+                                    <TextBlock Text="{Binding RemoteSummary}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding ActiveConnectionEndpoint}" />
                                 </Border>
                             </Grid>
                         </Border>
@@ -396,15 +417,12 @@
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="#6E84A2" Margin="0,0,9,0" />
                                         <TextBlock Text="Transferências" FontSize="12" FontWeight="SemiBold" />
-                                        <Border Background="{DynamicResource SubtleBrush}" CornerRadius="3" Padding="6,2" Margin="9,0,0,0"><TextBlock Text="0" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" /></Border>
+                                        <Border Background="{DynamicResource SubtleBrush}" CornerRadius="3" Padding="6,2" Margin="9,0,0,0"><TextBlock Text="{Binding TransferCount}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" /></Border>
                                     </StackPanel>
-                                    <TextBlock Text="Fila vazia" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding TransferSummary}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                 </Grid>
                             </Border>
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="20" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,12,0" />
-                                <TextBlock Text="As transferências aparecerão aqui quando você enviar ou baixar arquivos." Style="{StaticResource MutedTextStyle}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <views:TransferQueueView Grid.Row="1" />
                         </Grid>
                     </Border>
                 </Grid>
@@ -419,11 +437,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <StackPanel><TextBlock Text="Transferências" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Seus envios e downloads, em um só lugar." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
                         <Border Grid.Row="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,25,0,0">
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="390" Margin="25">
-                                <TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="47" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,0,0,24"/>
-                                <TextBlock Text="Nenhuma transferência na fila" FontSize="21" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Os envios e downloads aparecerão aqui quando o acesso remoto estiver disponível." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,0"/>
-                            </StackPanel>
+                            <views:TransferQueueView />
                         </Border>
                     </Grid>
                     <Grid x:Name="AutomationsPage" Visibility="Collapsed" Margin="34,30">

@@ -37,4 +37,10 @@ Credentials remain separate from profile JSON. Saved profiles can optionally rem
 
 See [SSH setup and verification](docs/ssh-connections.md) for connection instructions, server trust, tested key formats, and local integration tests.
 
-This delivery establishes a single SSH session, including SSH transport for SFTP profiles. SFTP browsing and transfers, an interactive terminal, FTP/FTPS, and automations are subsequent milestones.
+## SFTP files and transfers
+
+Browse the connected server's directories and upload or download individual files. The remote panel supports parent navigation, entered paths, refresh, Unicode filenames, sizes, and modification dates. A serial transfer queue displays real progress and allows cancellation of pending or running work.
+
+Transfers use temporary files and safe finalization to preserve existing destinations on failure or cancellation. Replacements require confirmation; upload replacement also requires the server's atomic rename support. See [SFTP transfers](docs/sftp-transfers.md) for behavior, cancellation limits, and verification.
+
+One VPS session is supported at a time. An interactive terminal, FTP/FTPS, persistent transfer history, recursive transfers, and automations are subsequent milestones.

@@ -15,7 +15,7 @@ using OhMySsh.Infrastructure.Connections;
 
 namespace OhMySsh.Desktop.ViewModels;
 
-public sealed class MainViewModel : ObservableObject
+public sealed partial class MainViewModel : ObservableObject
 {
     private readonly IConnectionProfileStore _store;
     private readonly ILocalFileService _localFiles;
@@ -102,6 +102,7 @@ public sealed class MainViewModel : ObservableObject
             ReportCommandFailure);
         CopyEndpointCommand = new RelayCommand(CopyEndpoint, CanUseSelectedConnection);
         FilterFavoritesCommand = new RelayCommand(() => FavoritesOnly = !FavoritesOnly);
+        InitializeRemoteCommands();
     }
 
     public ObservableCollection<ConnectionProfile> Connections { get; } = [];
@@ -259,7 +260,13 @@ public sealed class MainViewModel : ObservableObject
     public FileEntry? SelectedLocalEntry
     {
         get => _selectedLocalEntry;
-        set => SetProperty(ref _selectedLocalEntry, value);
+        set
+        {
+            if (SetProperty(ref _selectedLocalEntry, value))
+            {
+                UploadCommand.NotifyCanExecuteChanged();
+            }
+        }
     }
 
     public string LocalPath
@@ -611,12 +618,14 @@ public sealed class MainViewModel : ObservableObject
             // that disconnected handle before requesting a replacement.
             if (_activeSession is { } previous)
             {
+                var remoteCleanup = StopRemoteSession();
                 previous.Disconnected -= OnSessionDisconnected;
                 _activeSession = null;
                 _activeConnection = null;
                 NotifyActiveSessionChanged();
                 _sessionCleanupTask = DisposeQuietlyAsync(previous);
                 await _sessionCleanupTask.WaitAsync(cancellation.Token);
+                await remoteCleanup.WaitAsync(cancellation.Token);
             }
 
             connectionTask = _remoteConnections.ConnectAsync(profile with { }, cancellation.Token);
@@ -678,6 +687,7 @@ public sealed class MainViewModel : ObservableObject
         if (activated && HasActiveSession && !_isShuttingDown)
         {
             ActiveSessionChanged?.Invoke(this, EventArgs.Empty);
+            StartRemoteSession(_activeSession!);
         }
     }
 
@@ -690,6 +700,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         IsDisconnecting = true;
+        var remoteCleanup = StopRemoteSession();
         session.Disconnected -= OnSessionDisconnected;
         _activeSession = null;
         _activeConnection = null;
@@ -698,6 +709,7 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             await (_sessionCleanupTask = session.DisposeAsync().AsTask());
+            await remoteCleanup;
             SetStatus("Disconnected. Select a saved VPS or enter connection details", "Info");
         }
         catch (Exception exception)
@@ -717,6 +729,7 @@ public sealed class MainViewModel : ObservableObject
     {
         _isShuttingDown = true;
         CancelConnection();
+        var remoteCleanup = StopRemoteSession();
         RefreshCommandStates();
         await _connectionSettled;
         // A canceled UI await can finish before the adapter disposes its socket.
@@ -739,6 +752,7 @@ public sealed class MainViewModel : ObservableObject
             NotifyActiveSessionChanged();
             await (_sessionCleanupTask = DisposeQuietlyAsync(session));
         }
+        await remoteCleanup;
 
         // A canceled SSH.NET handshake can outlive the visible attempt. Keep
         // the dispatcher and process alive until the adapter retires its workers.
@@ -766,6 +780,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         IsDisconnecting = true;
+        var remoteCleanup = StopRemoteSession();
         session.Disconnected -= OnSessionDisconnected;
         _activeSession = null;
         _activeConnection = null;
@@ -775,6 +790,7 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             await (_sessionCleanupTask = DisposeQuietlyAsync(session));
+            await remoteCleanup;
         }
         finally
         {
@@ -967,6 +983,7 @@ public sealed class MainViewModel : ObservableObject
         NavigateLocalCommand.NotifyCanExecuteChanged();
         OpenLocalEntryCommand.NotifyCanExecuteChanged();
         CopyEndpointCommand.NotifyCanExecuteChanged();
+        RefreshRemoteCommandStates();
     }
 
     private void ReportCommandFailure(Exception exception)

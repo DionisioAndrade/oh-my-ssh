@@ -310,6 +310,36 @@ public partial class MainWindow : Window
         }
     }
 
+    private void RemoteFiles_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject)?.Item is FileEntry entry)
+        {
+            OpenRemoteDirectory(entry);
+        }
+    }
+
+    private void RemoteFiles_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && _viewModel.SelectedRemoteEntry is { } entry)
+        {
+            OpenRemoteDirectory(entry);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Back && _viewModel.GoUpRemoteCommand.CanExecute(null))
+        {
+            _viewModel.GoUpRemoteCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private void OpenRemoteDirectory(FileEntry entry)
+    {
+        if (_viewModel.OpenRemoteEntryCommand.CanExecute(entry))
+        {
+            _viewModel.OpenRemoteEntryCommand.Execute(entry);
+        }
+    }
+
     private static T? FindAncestor<T>(DependencyObject? element) where T : DependencyObject
     {
         while (element is not null)

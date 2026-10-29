@@ -10,4 +10,8 @@ public interface IDesktopInteractionService
     string? PickLocalFolder(string initialPath);
     void ShowInformation(string title, string message);
     void CopyToClipboard(string text);
+    string? PickUploadFile(string initialDirectory) => null;
+    string? PickDownloadFile(string suggestedFileName, string initialDirectory) => null;
+    Task<bool> ConfirmOverwriteAsync(string destination, bool isRemote, CancellationToken cancellationToken = default)
+        => Task.FromResult(false);
 }

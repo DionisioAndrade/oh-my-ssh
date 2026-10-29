@@ -52,16 +52,30 @@ Regular windows inherit their theme from the application. Setting `Window.ThemeM
 
 SQLite should be introduced when transfer and execution history requires queries and transactions across entities. Migration should import JSON profiles, preserve the original file, and validate IDs. Credentials already use the Windows credential store and remain separate from profiles and future history.
 
+## SFTP browsing and transfers
+
+Core exposes session-owned `IRemoteFileService` operations and POSIX path helpers. `IRemoteConnectionSession.Files` is an optional capability, allowing offline QA sessions and SSH servers without SFTP to remain valid. Infrastructure uses SSH.NET's SFTP client for directory listing, existence checks, and individual-file streaming.
+
+SSH.NET does not expose a supported way to attach a public SftpClient to an existing SshClient session. The active VPS therefore owns a lazy secondary SFTP transport. Each SFTP connection attempt creates its own connection and authentication state using the active profile and credentials, with cancellation tied to that attempt. Password copies are cleared during child cleanup; parsed private keys remain owned by the parent until child cleanup finishes. The SFTP client pins the exact host fingerprint accepted for the SSH session, including trust-once decisions. Parent disconnection cancels file work and disposes SFTP resources before authentication material is released.
+
+The Desktop ViewModel keeps the loaded remote path separate from the editable path field. Navigation changes the listing only after success and rejects stale results using session/request identity. SFTP subsystem errors remain separate from SSH authentication and do not create a simulated listing.
+
+The in-memory queue owns immutable session and path snapshots. One job runs at a time. UI progress is throttled; 100 percent and Completed are published only after destination finalization succeeds. Progress explicitly identifies the final commit phase, so reaching the total byte count alone does not disable cancellation during a pending flush. Disconnect, transport loss, and application exit cancel pending work and retire running operations before releasing the session. Selecting or editing a saved profile cannot redirect an existing job.
+
+Both transfer directions stream through bounded buffers into staging files in the destination directory. Downloads finalize with a local move; uploads use standard no-overwrite rename or the server's atomic POSIX rename extension for a confirmed replacement. The adapter never deletes an existing destination to emulate overwrite. See [SFTP transfers](sftp-transfers.md) for user-facing semantics and limitations.
+
+`TransferQueueView` renders the same queue in the file workspace and the dedicated transfers page, preserving the native Fluent control styles and shared theme brushes.
+
 ## Planned integrations
 
-1. Extend the implemented SSH.NET transport with command execution and SFTP operations through explicit capability contracts. Tunnels belong to a later integration.
+1. Extend the implemented SSH.NET transport with command execution and, later, tunnels through explicit capability contracts.
 2. A FluentFTP adapter for FTP/FTPS, keeping the protocol and its capabilities explicit. The profile editor defaults to explicit FTPS on port 21.
 3. A dedicated VT/ANSI terminal emulator. A shell transport requires an emulator to render interactive programs. Validate Unicode, PTY, `vim`, `tmux`, resizing, and multiple sessions before choosing the component.
-4. A transfer queue with cancellation, progress, and partial-file handling.
+4. Extend the implemented serial transfer queue with persistent history and protocol-neutral recovery policies.
 5. A task automation runner independent of tabs and windows, with persisted steps, timeouts, history, and a retry policy suited to each operation.
 
 The application contains no fake adapters or simulated connected states. Profiles used in screenshots and verification are fixtures belonging to the verifier and are never inserted into the user's profile store.
 
 ## Verification
 
-`scripts/Verify-OhMySsh.ps1` runs the executable WPF verification suite using isolated profiles and QA-only session doubles. `scripts/Verify-Ssh.ps1` builds a separate SSH integration executable and starts an isolated Python AsyncSSH server on loopback. The fixture uses temporary keys and credentials under `.local`, without modifying OpenSSH configuration, installing a Windows service, or contacting a VPS. See [SSH setup and verification](ssh-connections.md) for commands and prerequisites.
+`scripts/Verify-OhMySsh.ps1` runs the executable WPF verification suite using isolated profiles and QA-only session doubles. `scripts/Verify-Ssh.ps1` builds a separate SSH/SFTP integration executable and starts an isolated Python AsyncSSH server on loopback. The fixture uses temporary keys, credentials, and a controlled SFTP filesystem under `.local`, without modifying OpenSSH configuration, installing a Windows service, or contacting a VPS. See [SSH setup and verification](ssh-connections.md) and [SFTP transfers](sftp-transfers.md) for commands, prerequisites, and coverage.

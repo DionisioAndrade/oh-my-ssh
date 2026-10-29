@@ -13,7 +13,16 @@ public sealed record FileEntry
     public long Size { get; init; }
     public DateTime LastModified { get; init; }
 
-    public string Extension => IsDirectory ? string.Empty : Path.GetExtension(Name);
+    public string Extension
+    {
+        get
+        {
+            if (IsDirectory) return string.Empty;
+            // Name is one component, including when a POSIX server uses a literal backslash.
+            var separator = Name.LastIndexOf('.');
+            return separator < 0 || separator == Name.Length - 1 ? string.Empty : Name[separator..];
+        }
+    }
 
     public string SizeLabel
     {

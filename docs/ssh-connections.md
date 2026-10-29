@@ -54,7 +54,7 @@ Missing or unreadable files, malformed keys, and incorrect passphrases produce a
 
 Application-generated connection events, errors, and diagnostics use English. Diagnostic messages avoid raw transport exception details and authentication secrets. Existing product navigation labels may remain in Portuguese.
 
-Only one active VPS session is supported. SSH/SFTP profiles establish the SSH transport; SFTP file operations and a VT/ANSI terminal are later tasks. FTP/FTPS profiles remain unsupported by this adapter.
+Only one active VPS session is supported. SSH/SFTP profiles establish SSH transport and can use [SFTP browsing and transfers](sftp-transfers.md) when the server provides that subsystem. A VT/ANSI terminal is a later task. FTP/FTPS profiles remain unsupported by this adapter.
 
 ## Verify locally
 
@@ -76,4 +76,4 @@ Later runs reuse that environment:
 ./scripts/Verify-Ssh.ps1
 ```
 
-The integration runner starts a controlled SSH server bound to loopback and generates temporary credentials and keys under `.local`. It checks successful authentication, key/passphrase handling, host verification, cancellation, timeout, disconnection, retry, resource cleanup, and isolated credential persistence. It does not modify the user's SSH configuration or connect to a real VPS. Generated fixture credentials are test data and must not be reused on servers.
+The integration runner starts a controlled SSH/SFTP server bound to loopback and generates temporary credentials, keys, and files under `.local`. It checks successful authentication, key/passphrase handling, host verification, cancellation, timeout, disconnection, retry, resource cleanup, and isolated credential persistence, together with the [SFTP transfer scenarios](sftp-transfers.md#verification). It does not modify the user's SSH configuration or connect to a real VPS. Generated fixture credentials are test data and must not be reused on servers.

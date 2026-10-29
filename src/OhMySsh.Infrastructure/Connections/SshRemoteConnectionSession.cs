@@ -1,5 +1,6 @@
 using OhMySsh.Core.Abstractions;
 using OhMySsh.Core.Models;
+using OhMySsh.Infrastructure.Files;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 
@@ -11,6 +12,7 @@ internal sealed class SshRemoteConnectionSession : IRemoteConnectionSession
     private readonly AuthenticationMethod _authentication;
     private readonly PrivateKeyFile? _privateKey;
     private readonly EventHandler<HostKeyEventArgs> _hostKeyHandler;
+    private readonly SftpRemoteFileService _files;
     private readonly CancellationTokenSource _monitorCancellation = new();
     private readonly object _disposeGate = new();
     private readonly Task _monitorTask;
@@ -19,18 +21,22 @@ internal sealed class SshRemoteConnectionSession : IRemoteConnectionSession
     private int _connectionLost;
 
     public SshRemoteConnectionSession(ConnectionProfile profile, SshClient client, AuthenticationMethod authentication,
-        PrivateKeyFile? privateKey, EventHandler<HostKeyEventArgs> hostKeyHandler)
+        PrivateKeyFile? privateKey, EventHandler<HostKeyEventArgs> hostKeyHandler, string fingerprint)
     {
         Profile = profile;
         _client = client;
         _authentication = authentication;
         _privateKey = privateKey;
         _hostKeyHandler = hostKeyHandler;
+        _files = new SftpRemoteFileService(profile,
+            token => SshRemoteConnectionService.CreateFileConnectionInfo(profile, authentication, privateKey, token),
+            fingerprint, () => IsConnected);
         _client.ErrorOccurred += OnError;
         _monitorTask = MonitorAsync();
     }
 
     public ConnectionProfile Profile { get; }
+    public IRemoteFileService Files => _files;
     public event EventHandler? Disconnected;
 
     public bool IsConnected
@@ -57,11 +63,19 @@ internal sealed class SshRemoteConnectionSession : IRemoteConnectionSession
                 _client.ErrorOccurred -= OnError;
                 _client.HostKeyReceived -= _hostKeyHandler;
                 _monitorCancellation.Cancel();
+                _files.CancelPendingOperations();
                 _disposeTask = Task.Run(async () =>
                 {
-                    await _monitorTask.ConfigureAwait(false);
-                    SshRemoteConnectionService.DisposeResources(_client, _authentication, _privateKey);
-                    _monitorCancellation.Dispose();
+                    try
+                    {
+                        try { await _monitorTask.ConfigureAwait(false); }
+                        finally { await _files.DisposeAsync().ConfigureAwait(false); }
+                    }
+                    finally
+                    {
+                        SshRemoteConnectionService.DisposeResources(_client, _authentication, _privateKey);
+                        _monitorCancellation.Dispose();
+                    }
                 });
             }
 
@@ -92,6 +106,7 @@ internal sealed class SshRemoteConnectionSession : IRemoteConnectionSession
     {
         if (Volatile.Read(ref _disposed) == 0 && Interlocked.Exchange(ref _connectionLost, 1) == 0)
         {
+            _files.CancelPendingOperations();
             Disconnected?.Invoke(this, EventArgs.Empty);
         }
     }
