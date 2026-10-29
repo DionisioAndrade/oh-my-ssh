@@ -23,11 +23,24 @@ The filename suggested for a download must be safe for Windows. Remote names can
 
 ## Progress and cancellation
 
-The file workspace and Transfers page show the same queue: filename, server, direction, transferred and total bytes, percentage, and status. Jobs are queued, running, completed, failed, or canceled. One file runs at a time; the queue is kept in memory and is not restored after closing the application.
+The file workspace and Transfers page show the same queue: filename, server, direction, transferred and total bytes, percentage, speed, estimated remaining time, and status. Hover over the remaining-time value to see elapsed time. Jobs are queued, running, completed, failed, or canceled. One file runs at a time; the queue is kept in memory and is not restored after closing the application.
+
+Speed uses recent byte measurements and refreshes during periods without progress. The remaining-time estimate needs enough data to calculate a rate and changes as throughput changes. Empty files, insufficient samples, stalled transfers, finalization, and finished jobs show no remaining-time estimate. Elapsed time starts when processing the job begins, excludes its time waiting in the queue, and stops when the job finishes.
 
 Cancel can stop a queued job or the streaming phase of a running job. Progress stays below 100 percent until destination finalization succeeds, including for empty files. Finalization is a short commit boundary: a cancellation arriving after it begins cannot reverse a completed replacement. The interface disables cancellation when it knows finalization has started and reports the actual committed outcome.
 
 Disconnecting or losing the VPS connection cancels pending operations and clears remote session state. Queue rows retain their outcomes. Choosing another saved profile does not change the server or paths of a queued or running transfer. If a canceled operation makes the SFTP channel unusable, the error explains that reconnection is required.
+
+## Queue controls and retries
+
+- **Pause queue** prevents the next file from starting. A transfer already running continues to completion. Files can still be added or canceled while the queue is paused. Resume the queue to process pending files in order.
+- **Cancel all** cancels pending files and requests cancellation of the current transfer. The same atomic-finalization boundary applies: a destination already being committed cannot be rolled back by a late cancellation.
+- **Clear completed** removes successful entries from the list. It does not remove local or remote files. Failed and canceled entries remain available for inspection or retry.
+- **Retry** creates a new full transfer attempt for a failed or canceled entry, preserving its original source, destination, direction, and VPS settings. The previous entry retains its result. Retry restarts from the beginning and does not resume a partial file.
+
+Retry requires an active connection matching the original hostname, port, username, protocol, and private-key settings. Reconnecting to the same VPS permits a manual retry; selecting another profile cannot redirect it. A duplicate queued or running attempt for the same paths prevents another retry from starting. After an error requiring reconnection, reconnect before retrying.
+
+Each retry checks the destination again and asks for overwrite confirmation if needed. Changes to the local or remote source are read by the new attempt; missing or inaccessible sources fail without replacing the existing destination. Disconnecting clears the pause state, and the application does not automatically retry old entries.
 
 ## Destination safety and temporary files
 
@@ -48,7 +61,7 @@ If the connection disappears after the server commits a rename but before acknow
 
 The first command runs WPF regressions and captures both themes. The second uses the isolated loopback SSH/SFTP fixture, with file fixtures under `.local`. For first-time fixture dependency setup, use `./scripts/Verify-Ssh.ps1 -InstallFixtureDependencies`.
 
-Verification covers browsing, Unicode and spaces, empty files and directories, content comparison, bounded streaming, permission and missing-path errors, overwrite decisions, cancellation, partial-file cleanup, disconnection, and stale session results. No real VPS or user SSH configuration is used.
+Verification covers browsing, Unicode and spaces, empty files and directories, content comparison, bounded streaming, permission and missing-path errors, overwrite decisions, cancellation, partial-file cleanup, disconnection, and stale session results. Desktop checks also cover speed and time estimates with a controlled monotonic clock, pause and resume, cancel-all behavior, clearing successful rows, retry destination safety, and both visual themes. No real VPS or user SSH configuration is used.
 
 ## Out of scope
 

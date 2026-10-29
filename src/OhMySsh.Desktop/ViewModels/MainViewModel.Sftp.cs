@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows.Threading;
 using OhMySsh.Core.Abstractions;
 using OhMySsh.Core.Models;
+using OhMySsh.Infrastructure.Persistence;
 using RemotePaths = OhMySsh.Core.Models.RemotePath;
 
 namespace OhMySsh.Desktop.ViewModels;
@@ -24,6 +25,11 @@ public sealed partial class MainViewModel
     private Task _remoteInitializationTask = Task.CompletedTask;
     private Task _remoteRetirementTask = Task.CompletedTask;
     private Task _queueWorkerTask = Task.CompletedTask;
+    private bool _isProcessingTransferQueue;
+    private bool _isTransferQueuePaused;
+    private bool _suppressTransferQueueStart;
+    private DispatcherTimer? _transferTimingTimer;
+    private TransferItemViewModel? _timedTransfer;
 
     public ObservableCollection<FileEntry> RemoteEntries => _remoteEntries;
     public ObservableCollection<TransferItemViewModel> TransferJobs { get; } = [];
@@ -34,6 +40,10 @@ public sealed partial class MainViewModel
     public AsyncRelayCommand UploadCommand { get; private set; } = null!;
     public AsyncRelayCommand DownloadCommand { get; private set; } = null!;
     public RelayCommand CancelTransferCommand { get; private set; } = null!;
+    public RelayCommand ToggleTransferQueueCommand { get; private set; } = null!;
+    public RelayCommand CancelAllTransfersCommand { get; private set; } = null!;
+    public RelayCommand ClearCompletedTransfersCommand { get; private set; } = null!;
+    public RelayCommand RetryTransferCommand { get; private set; } = null!;
 
     public string RemotePath { get => _remotePath; set => SetProperty(ref _remotePath, value ?? string.Empty); }
     public FileEntry? SelectedRemoteEntry
@@ -72,7 +82,18 @@ public sealed partial class MainViewModel
         : HasActiveSession ? "Os arquivos remotos aparecerão aqui." : "Conecte uma VPS para explorar seus arquivos.";
     public bool HasTransfers => TransferJobs.Count > 0;
     public int TransferCount => TransferJobs.Count;
-    public string TransferSummary => $"{TransferJobs.Count(item => item.State == TransferState.Queued)} na fila · {TransferJobs.Count(item => item.State == TransferState.Running)} em andamento";
+    public bool IsTransferQueuePaused
+    {
+        get => _isTransferQueuePaused;
+        private set
+        {
+            if (!SetProperty(ref _isTransferQueuePaused, value)) return;
+            OnPropertyChanged(nameof(QueuePauseLabel));
+            NotifyTransferState();
+        }
+    }
+    public string QueuePauseLabel => IsTransferQueuePaused ? "Continuar fila" : "Pausar fila";
+    public string TransferSummary => $"{(IsTransferQueuePaused ? "Fila pausada · " : string.Empty)}{TransferJobs.Count(item => item.State == TransferState.Queued)} na fila · {TransferJobs.Count(item => item.State == TransferState.Running)} em andamento";
     public Task RemoteInitialization => _remoteInitializationTask;
     public Task WaitForTransfersAsync() => _queueWorkerTask;
 
@@ -88,7 +109,14 @@ public sealed partial class MainViewModel
         DownloadCommand = new AsyncRelayCommand(QueueDownloadAsync,
             () => CanQueueTransfer() && SelectedRemoteEntry is { IsDirectory: false }, ReportRemoteFailure);
         CancelTransferCommand = new RelayCommand(parameter => CancelTransfer((TransferItemViewModel)parameter!),
-            parameter => parameter is TransferItemViewModel { CanCancel: true });
+            parameter => parameter is TransferItemViewModel { CanCancel: true } job && TransferJobs.Contains(job));
+        ToggleTransferQueueCommand = new RelayCommand(ToggleTransferQueue, CanBrowseRemote);
+        CancelAllTransfersCommand = new RelayCommand(CancelAllTransfers,
+            () => TransferJobs.Any(job => job.CanCancel));
+        ClearCompletedTransfersCommand = new RelayCommand(ClearCompletedTransfers,
+            () => TransferJobs.Any(job => job.State == TransferState.Completed));
+        RetryTransferCommand = new RelayCommand(parameter => RetryTransfer((TransferItemViewModel)parameter!),
+            parameter => parameter is TransferItemViewModel job && CanRetryTransfer(job));
         RemoteEntries.CollectionChanged += (_, _) => NotifyRemoteState();
         TransferJobs.CollectionChanged += (_, _) => NotifyTransferState();
     }
@@ -230,76 +258,192 @@ public sealed partial class MainViewModel
         job.PropertyChanged += TransferChanged;
         TransferJobs.Add(job);
         SetStatus($"Transfer queued: {job.Direction}", "Info");
-        if (_queueWorkerTask.IsCompleted) _queueWorkerTask = ProcessTransferQueueAsync();
+        StartTransferQueue();
+    }
+
+    private void StartTransferQueue()
+    {
+        if (_isProcessingTransferQueue || IsTransferQueuePaused || _suppressTransferQueueStart
+            || !CanBrowseRemote() || !TransferJobs.Any(job => job.State == TransferState.Queued)) return;
+        _isProcessingTransferQueue = true;
+        _queueWorkerTask = ProcessTransferQueueAsync();
     }
 
     private async Task ProcessTransferQueueAsync()
     {
-        while (TransferJobs.FirstOrDefault(item => item.State == TransferState.Queued) is { } job)
+        // Publish the worker task before any synchronous adapter or event callback can finish it.
+        await Task.Yield();
+        try
         {
-            if (!_transferContexts.TryGetValue(job, out var context)) { job.SetState(TransferState.Canceled); continue; }
-            var token = job.Cancellation.Token;
-            var progress = new ThrottledTransferProgress(_dispatcher, job, () => IsCurrent(context));
-            job.SetState(TransferState.Running);
-            try
+            while (!IsTransferQueuePaused && !_suppressTransferQueueStart && !_remoteRequiresReconnect
+                && TransferJobs.FirstOrDefault(item => item.State == TransferState.Queued) is { } job)
             {
-                token.ThrowIfCancellationRequested();
-                if (!IsCurrent(context)) throw new OperationCanceledException(token);
-                var exists = job.Direction == TransferDirection.Upload
-                    ? await context.Files.ExistsAsync(job.DestinationPath, token)
-                    : File.Exists(job.DestinationPath);
-                var overwrite = exists && await _interactions.ConfirmOverwriteAsync(job.DestinationPath,
-                    job.Direction == TransferDirection.Upload, token);
-                token.ThrowIfCancellationRequested();
-                if (exists && !overwrite) { job.SetState(TransferState.Canceled); continue; }
-                if (job.Direction == TransferDirection.Upload)
-                    await context.Files.UploadAsync(job.SourcePath, job.DestinationPath, overwrite, progress, token);
-                else
-                    await context.Files.DownloadAsync(job.SourcePath, job.DestinationPath, overwrite, progress, token);
-
-                // Atomic finalization wins once it begins. A successful service task means the
-                // destination is committed; a late cancellation cannot truthfully undo it.
-                if (progress.Last is { } finalProgress) job.UpdateProgress(finalProgress);
-                job.SetState(TransferState.Completed);
-                if (IsCurrent(context))
+                if (!_transferContexts.TryGetValue(job, out var context)) { job.SetState(TransferState.Canceled); continue; }
+                var token = job.Cancellation.Token;
+                var progress = new ThrottledTransferProgress(_dispatcher, job, () => IsCurrent(context));
+                job.SetState(TransferState.Running);
+                StartTransferTiming(job);
+                try
                 {
-                    SetStatus($"Transfer completed: {job.Direction}", "Success");
-                    if (job.Direction == TransferDirection.Upload
-                        && !IsRemoteLoading
-                        && RemotePaths.GetParent(job.DestinationPath) == _loadedRemotePath)
-                        await NavigateRemoteToAsync(_loadedRemotePath);
-                    if (job.Direction == TransferDirection.Download
-                        && string.Equals(Path.GetDirectoryName(job.DestinationPath), _loadedLocalPath, StringComparison.OrdinalIgnoreCase))
-                        await NavigateToAsync(_loadedLocalPath);
+                    token.ThrowIfCancellationRequested();
+                    if (!IsCurrent(context)) throw new OperationCanceledException(token);
+                    if (job.Direction == TransferDirection.Upload && !File.Exists(job.SourcePath))
+                        throw new FileNotFoundException("The selected local upload file was not found.");
+                    var exists = job.Direction == TransferDirection.Upload
+                        ? await context.Files.ExistsAsync(job.DestinationPath, token)
+                        : File.Exists(job.DestinationPath);
+                    var overwrite = exists && await _interactions.ConfirmOverwriteAsync(job.DestinationPath,
+                        job.Direction == TransferDirection.Upload, token);
+                    token.ThrowIfCancellationRequested();
+                    if (exists && !overwrite) { job.SetState(TransferState.Canceled); continue; }
+                    if (job.Direction == TransferDirection.Upload)
+                        await context.Files.UploadAsync(job.SourcePath, job.DestinationPath, overwrite, progress, token);
+                    else
+                        await context.Files.DownloadAsync(job.SourcePath, job.DestinationPath, overwrite, progress, token);
+
+                    // Atomic finalization wins once it begins. A successful service task means the
+                    // destination is committed; a late cancellation cannot truthfully undo it.
+                    if (progress.Last is { } finalProgress) job.UpdateProgress(finalProgress);
+                    job.SetState(TransferState.Completed);
+                    if (IsCurrent(context))
+                    {
+                        SetStatus($"Transfer completed: {job.Direction}", "Success");
+                        if (job.Direction == TransferDirection.Upload
+                            && !IsRemoteLoading
+                            && RemotePaths.GetParent(job.DestinationPath) == _loadedRemotePath)
+                            await NavigateRemoteToAsync(_loadedRemotePath);
+                        if (job.Direction == TransferDirection.Download
+                            && string.Equals(Path.GetDirectoryName(job.DestinationPath), _loadedLocalPath, StringComparison.OrdinalIgnoreCase))
+                            await NavigateToAsync(_loadedLocalPath);
+                    }
                 }
-            }
-            catch (OperationCanceledException) when (token.IsCancellationRequested || !IsCurrent(context))
-            {
-                if (progress.Last is { } canceledProgress) job.UpdateProgress(canceledProgress);
-                job.SetState(TransferState.Canceled);
-                if (IsCurrent(context)) SetStatus("Transfer canceled.", "Info");
-            }
-            catch (Exception exception)
-            {
-                if (token.IsCancellationRequested || !IsCurrent(context))
+                catch (OperationCanceledException) when (token.IsCancellationRequested || !IsCurrent(context))
                 {
                     if (progress.Last is { } canceledProgress) job.UpdateProgress(canceledProgress);
                     job.SetState(TransferState.Canceled);
+                    if (IsCurrent(context)) SetStatus("Transfer canceled.", "Info");
                 }
-                else
+                catch (Exception exception)
                 {
-                    var message = GetRemoteError(exception);
-                    job.SetState(TransferState.Failed, message);
-                    ReportRemoteFailure(exception);
+                    if (token.IsCancellationRequested || !IsCurrent(context))
+                    {
+                        if (progress.Last is { } canceledProgress) job.UpdateProgress(canceledProgress);
+                        job.SetState(TransferState.Canceled);
+                    }
+                    else
+                    {
+                        var message = GetRemoteError(exception);
+                        ReportRemoteFailure(exception);
+                        job.SetState(TransferState.Failed, message);
+                    }
                 }
-            }
-            finally
-            {
-                _transferContexts.Remove(job);
-                job.Cancellation.Dispose();
-                NotifyTransferState();
+                finally
+                {
+                    StopTransferTiming();
+                    _transferContexts.Remove(job);
+                    job.Cancellation.Dispose();
+                    NotifyTransferState();
+                }
             }
         }
+        finally
+        {
+            _isProcessingTransferQueue = false;
+            StopTransferTiming();
+            NotifyTransferState();
+        }
+    }
+
+    private void ToggleTransferQueue()
+    {
+        IsTransferQueuePaused = !IsTransferQueuePaused;
+        SetStatus(IsTransferQueuePaused
+            ? "Transfer queue paused. The current file will finish before the queue stops."
+            : "Transfer queue resumed.", "Info");
+        if (!IsTransferQueuePaused) StartTransferQueue();
+    }
+
+    private void CancelAllTransfers()
+    {
+        _suppressTransferQueueStart = true;
+        try
+        {
+            // Cancel waiting jobs first, so synchronous cancellation callbacks cannot start them.
+            foreach (var job in TransferJobs.Where(job => job.CanCancel)
+                .OrderBy(job => job.State == TransferState.Running ? 1 : 0).ToArray())
+                CancelTransfer(job);
+            SetStatus("Pending transfers canceled. A destination commit already in progress will finish.", "Info");
+        }
+        finally
+        {
+            _suppressTransferQueueStart = false;
+            NotifyTransferState();
+        }
+    }
+
+    private void ClearCompletedTransfers()
+    {
+        foreach (var job in TransferJobs.Where(job => job.State == TransferState.Completed).ToArray())
+        {
+            job.PropertyChanged -= TransferChanged;
+            TransferJobs.Remove(job);
+        }
+        SetStatus("Completed transfers cleared from the queue.", "Info");
+    }
+
+    public bool CanRetryTransfer(TransferItemViewModel job)
+        => !_suppressTransferQueueStart && TransferJobs.Contains(job) && job.CanRetry && CanBrowseRemote()
+           && _remoteContext is { } context && SameTransferEndpoint(job.Profile, context.Session.Profile)
+           && !TransferJobs.Any(pending => pending.State is TransferState.Queued or TransferState.Running
+               && pending.Direction == job.Direction && SameTransferEndpoint(pending.Profile, job.Profile)
+               && string.Equals(pending.SourcePath, job.SourcePath, job.Direction == TransferDirection.Upload
+                   ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+               && string.Equals(pending.DestinationPath, job.DestinationPath, job.Direction == TransferDirection.Download
+                   ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal));
+
+    private void RetryTransfer(TransferItemViewModel previous)
+    {
+        if (!CanRetryTransfer(previous) || _remoteContext is not { } context) return;
+        EnqueueTransfer(context, new TransferItemViewModel(previous.Profile, previous.SourcePath,
+            previous.DestinationPath, previous.FileName, previous.Direction, context.Lifetime.Token));
+    }
+
+    private static bool SameTransferEndpoint(ConnectionProfile first, ConnectionProfile second)
+    {
+        if (first.Port != second.Port || first.Protocol != second.Protocol
+            || !string.Equals(first.Username, second.Username, StringComparison.Ordinal)
+            || !string.Equals(JsonKnownHostStore.NormalizeHost(first.Host), JsonKnownHostStore.NormalizeHost(second.Host), StringComparison.Ordinal))
+            return false;
+        try
+        {
+            static string KeyPath(ConnectionProfile profile) => string.IsNullOrWhiteSpace(profile.PrivateKeyPath)
+                ? string.Empty : Path.GetFullPath(profile.PrivateKeyPath);
+            return string.Equals(KeyPath(first), KeyPath(second), StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    private void StartTransferTiming(TransferItemViewModel job)
+    {
+        _timedTransfer = job;
+        if (_transferTimingTimer is null)
+        {
+            _transferTimingTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _transferTimingTimer.Tick += (_, _) => _timedTransfer?.RefreshTiming();
+        }
+        _transferTimingTimer.Start();
+    }
+
+    private void StopTransferTiming()
+    {
+        _transferTimingTimer?.Stop();
+        _timedTransfer = null;
     }
 
     private void CancelTransfer(TransferItemViewModel job)
@@ -319,6 +463,8 @@ public sealed partial class MainViewModel
         var context = _remoteContext;
         _remoteContext = null;
         _remoteRequestVersion++;
+        StopTransferTiming();
+        IsTransferQueuePaused = false;
         if (context is not null)
         {
             context.Lifetime.Cancel();
@@ -359,7 +505,15 @@ public sealed partial class MainViewModel
         OpenRemoteEntryCommand?.NotifyCanExecuteChanged();
         UploadCommand?.NotifyCanExecuteChanged();
         DownloadCommand?.NotifyCanExecuteChanged();
+        RefreshTransferCommandStates();
+    }
+    private void RefreshTransferCommandStates()
+    {
         CancelTransferCommand?.NotifyCanExecuteChanged();
+        ToggleTransferQueueCommand?.NotifyCanExecuteChanged();
+        CancelAllTransfersCommand?.NotifyCanExecuteChanged();
+        ClearCompletedTransfersCommand?.NotifyCanExecuteChanged();
+        RetryTransferCommand?.NotifyCanExecuteChanged();
     }
     private void NotifyRemoteState()
     {
@@ -371,13 +525,21 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(RemoteStateMessage));
         RefreshRemoteCommandStates();
     }
-    private void TransferChanged(object? sender, PropertyChangedEventArgs args) => NotifyTransferState();
+    private void TransferChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is not (nameof(TransferItemViewModel.State) or nameof(TransferItemViewModel.CanCancel)
+            or nameof(TransferItemViewModel.CanRetry))) return;
+        if (args.PropertyName == nameof(TransferItemViewModel.State)
+            && sender is TransferItemViewModel { State: not TransferState.Running } job
+            && ReferenceEquals(job, _timedTransfer)) StopTransferTiming();
+        NotifyTransferState();
+    }
     private void NotifyTransferState()
     {
         OnPropertyChanged(nameof(HasTransfers));
         OnPropertyChanged(nameof(TransferCount));
         OnPropertyChanged(nameof(TransferSummary));
-        CancelTransferCommand?.NotifyCanExecuteChanged();
+        RefreshTransferCommandStates();
     }
     private void ReportRemoteFailure(Exception exception)
     {

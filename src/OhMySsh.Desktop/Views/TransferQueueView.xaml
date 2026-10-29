@@ -2,28 +2,132 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid>
-        <DataGrid x:Name="TransferJobsGrid" ItemsSource="{Binding TransferJobs}" Style="{StaticResource FileGridStyle}"
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Padding="12,7">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <TextBlock FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="Fila sequencial" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsTransferQueuePaused}" Value="True">
+                                    <Setter Property="Text" Value="Fila pausada" />
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="ToggleTransferQueueButton" Command="{Binding ToggleTransferQueueCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" MinHeight="28" FontSize="11"
+                            ToolTip="Pausa o início dos próximos arquivos. A transferência atual continua."
+                            AutomationProperties.Name="{Binding QueuePauseLabel}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="{StaticResource IconFont}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="&#xE769;" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsTransferQueuePaused}" Value="True">
+                                                <Setter Property="Text" Value="&#xE768;" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding QueuePauseLabel}" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="CancelAllTransfersButton" Content="Cancelar todas" Command="{Binding CancelAllTransfersCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" MinHeight="28" FontSize="11" Margin="6,0,0,0"
+                            ToolTip="Cancela os arquivos pendentes e solicita o cancelamento da transferência atual."
+                            AutomationProperties.Name="Cancelar todas as transferências" />
+                    <Button x:Name="ClearCompletedTransfersButton" Content="Limpar concluídas" Command="{Binding ClearCompletedTransfersCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" MinHeight="28" FontSize="11" Margin="6,0,0,0"
+                            ToolTip="Remove da lista apenas as transferências concluídas com sucesso."
+                            AutomationProperties.Name="Limpar transferências concluídas" />
+                </StackPanel>
+            </Grid>
+        </Border>
+        <DataGrid x:Name="TransferJobsGrid" Grid.Row="1" ItemsSource="{Binding TransferJobs}" Style="{StaticResource FileGridStyle}"
                   AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}"
-                  RowHeight="52" IsReadOnly="True" CanUserSortColumns="False" AutomationProperties.Name="Fila de transferências">
+                  RowHeight="58" IsReadOnly="True" CanUserSortColumns="False" AutomationProperties.Name="Fila de transferências">
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="Arquivo / VPS" Width="190" MinWidth="140">
-                    <DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding FileName}" FontWeight="SemiBold" ToolTip="{Binding DestinationPath}" /><TextBlock Text="{Binding Profile.Host}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                <DataGridTemplateColumn Header="Arquivo / VPS" Width="160" MinWidth="130">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
+                                <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" ToolTip="{Binding DestinationPath}" />
+                                <TextBlock Text="{Binding Profile.Host}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Direção" Binding="{Binding DirectionLabel}" Width="75">
-                    <DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center" /></Style></DataGridTextColumn.ElementStyle>
+                <DataGridTextColumn Header="Direção" Binding="{Binding DirectionLabel}" Width="84">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center" /></Style>
+                    </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTemplateColumn Header="Progresso" Width="*" MinWidth="160">
-                    <DataGridTemplateColumn.CellTemplate><DataTemplate><Grid Margin="0,7"><Grid.RowDefinitions><RowDefinition Height="6" /><RowDefinition Height="*" /></Grid.RowDefinitions><ProgressBar Maximum="100" Value="{Binding ProgressPercent, Mode=OneWay}" Height="5" /><Grid Grid.Row="1" Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock Text="{Binding BytesLabel}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" /><TextBlock Grid.Column="1" Text="{Binding ProgressPercent, StringFormat={}{0:0.#}%}" FontSize="10" Margin="8,0,0,0" /></Grid></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                <DataGridTemplateColumn Header="Progresso" Width="*" MinWidth="150">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,6,8,0" VerticalAlignment="Center">
+                                <Grid.RowDefinitions><RowDefinition Height="6" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <ProgressBar Maximum="100" Value="{Binding ProgressPercent, Mode=OneWay}" Height="5" />
+                                <Grid Grid.Row="1" Margin="0,4,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding BytesLabel}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" />
+                                    <TextBlock Grid.Column="1" Text="{Binding ProgressPercent, StringFormat={}{0:0.#}%}" FontSize="10" Margin="8,0,0,0" />
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Velocidade" Width="102">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate><TextBlock Text="{Binding SpeedLabel}" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0" /></DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Restante" Width="96">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding RemainingTimeLabel}" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0"
+                                       ToolTip="{Binding ElapsedTimeLabel, StringFormat='Tempo decorrido: {0}'}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTemplateColumn Header="Status" Width="105">
-                    <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding StatusLabel}" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="{Binding Error}" AutomationProperties.HelpText="{Binding Error}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate><TextBlock Text="{Binding StatusLabel}" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="{Binding Error}" AutomationProperties.HelpText="{Binding Error}" /></DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="" Width="85">
-                    <DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="Cancelar" Command="{Binding DataContext.CancelTransferCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="8,4" MinHeight="28" Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="{Binding FileName, StringFormat='Cancelar transferência de {0}'}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                <DataGridTemplateColumn Header="Ações" Width="138">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid VerticalAlignment="Center" Margin="8,0,8,0">
+                                <Button Content="Cancelar" Command="{Binding DataContext.CancelTransferCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                        CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="8,4" MinHeight="28"
+                                        Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibility}}"
+                                        AutomationProperties.Name="{Binding FileName, StringFormat='Cancelar transferência de {0}'}" />
+                                <Button Content="Tentar novamente" Command="{Binding DataContext.RetryTransferCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                        CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="8,4" MinHeight="28"
+                                        Visibility="{Binding CanRetry, Converter={StaticResource BoolToVisibility}}"
+                                        ToolTip="Conecte-se à mesma VPS para repetir esta operação. O destino será verificado novamente antes de sobrescrever."
+                                        ToolTipService.ShowOnDisabled="True"
+                                        AutomationProperties.Name="{Binding FileName, StringFormat='Tentar novamente a transferência de {0}'}" />
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
-        <TextBlock Text="Nenhuma transferência na fila. Envie ou baixe um arquivo para começar."
+        <TextBlock Grid.Row="1" Text="Nenhuma transferência na fila. Envie ou baixe um arquivo para começar."
                    Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
                    HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360" Margin="20,35,20,15" IsHitTestVisible="False"
                    Visibility="{Binding HasTransfers, Converter={StaticResource InverseBoolToVisibility}}" />

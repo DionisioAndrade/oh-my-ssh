@@ -212,12 +212,17 @@ internal sealed partial class VerificationRunner
     {
         var profile = CreateProfile() with { Name = "SFTP workspace · QA" };
         IProgress<TransferProgress>? visibleProgress = null;
-        var files = new QaRemoteFiles { UploadHandler = async (_, _, progress, token) =>
+        var files = new QaRemoteFiles();
+        files.UploadHandler = async (_, _, progress, token) =>
         {
+            if (files.UploadCalls == 1)
+                throw new RemoteFileException(RemoteFileErrorCode.Failed, "The QA transfer failed before finalization.");
             visibleProgress = progress;
+            progress?.Report(new TransferProgress(0, 256 * 1024));
+            await Task.Delay(600, token);
             progress?.Report(new TransferProgress(64 * 1024, 256 * 1024));
             await Task.Delay(Timeout.Infinite, token);
-        } };
+        };
         var service = new QaRemoteConnectionService { ConnectHandler = (snapshot, _) =>
             Task.FromResult<IRemoteConnectionSession>(new QaRemoteConnectionSession(snapshot) { Files = files }) };
         var vm = CreateViewModel(new MemoryProfileStore([profile]), new RecordingInteractions(), service);
@@ -230,9 +235,17 @@ internal sealed partial class VerificationRunner
         {
             await vm.ConnectCommand.ExecuteAsync(profile);
             await vm.RemoteInitialization;
+            vm.SelectedLocalEntry = QaRemoteFiles.Entry("manifest.json", Path.Combine(_workspace, "manifest.json"));
+            await vm.UploadCommand.ExecuteAsync();
+            await vm.WaitForTransfersAsync();
+            await vm.RefreshRemoteCommand.ExecuteAsync();
             vm.SelectedLocalEntry = QaRemoteFiles.Entry("deploy.ps1", Path.Combine(_workspace, "deploy.ps1"));
             await vm.UploadCommand.ExecuteAsync();
-            await WaitUntilAsync(() => vm.TransferJobs.Count == 1 && vm.TransferJobs[0].ProgressPercent > 0);
+            var running = vm.TransferJobs.Last();
+            await WaitUntilAsync(() => running.BytesPerSecond > 0);
+            vm.ToggleTransferQueueCommand.Execute(null);
+            vm.SelectedLocalEntry = QaRemoteFiles.Entry("README.md", Path.Combine(_workspace, "README.md"));
+            await vm.UploadCommand.ExecuteAsync();
             foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
             {
                 ThemeService.Current.Apply(theme);
@@ -241,9 +254,13 @@ internal sealed partial class VerificationRunner
                 await SettleLayoutAsync(window);
                 Require(((DataGrid)window.FindName("RemoteFilesGrid")).Items.Count == files.Entries.Count,
                     "The remote file grid did not bind the loaded listing.");
+                RequireQueueControlsVisible(window);
+                FindVisualChild<DataGrid>(window, grid => grid.Name == "TransferJobsGrid" && grid.IsVisible)!.ScrollIntoView(running);
+                await SettleLayoutAsync(window);
                 Capture(window, $"sftp-workspace-{suffix}.png");
                 window.NavigateTo("transfers");
                 await SettleLayoutAsync(window);
+                RequireQueueControlsVisible(window);
                 Capture(window, $"sftp-queue-{suffix}.png");
             }
             window.Width = window.MinWidth;
@@ -251,13 +268,16 @@ internal sealed partial class VerificationRunner
             window.NavigateTo("files");
             await SettleLayoutAsync(window);
             RequireVisibleWithinWindow(window, (FrameworkElement)window.FindName("RemoteFilesGrid"), "remote files");
+            RequireQueueControlsVisible(window);
+            FindVisualChild<DataGrid>(window, grid => grid.Name == "TransferJobsGrid" && grid.IsVisible)!.ScrollIntoView(running);
+            await SettleLayoutAsync(window);
             Capture(window, "sftp-minimum-workspace.png");
             // The queued byte update runs at Background priority, after the Normal-priority
             // commit marker. It must never regress the displayed commit phase or byte count.
             visibleProgress!.Report(new TransferProgress(128 * 1024, 256 * 1024));
             visibleProgress!.Report(new TransferProgress(256 * 1024, 256 * 1024, IsFinalizing: true));
-            await WaitUntilAsync(() => vm.TransferJobs[0].ProgressPercent >= 99.8);
-            Require(!vm.TransferJobs[0].CanCancel, "The actual non-cancellable commit phase still offered cancellation.");
+            await WaitUntilAsync(() => running.ProgressPercent >= 99.8);
+            Require(!running.CanCancel, "The actual non-cancellable commit phase still offered cancellation.");
             ThemeService.Current.Apply(AppTheme.Light);
             await SettleLayoutAsync(window);
             Require(FindVisualChild<TextBlock>(window, text => text.Text is "99.9%" or "99,9%") is not null,
@@ -281,6 +301,20 @@ internal sealed partial class VerificationRunner
             await Task.Delay(10);
         }
     }
+
+    private static void RequireQueueControlsVisible(Window window)
+    {
+        foreach (var name in new[] { "ToggleTransferQueueButton", "CancelAllTransfersButton", "ClearCompletedTransfersButton" })
+        {
+            var button = FindVisualChild<Button>(window, item => item.Name == name && item.IsVisible)
+                ?? throw new InvalidOperationException($"The transfer queue control {name} was not visible.");
+            RequireVisibleWithinWindow(window, button, name);
+        }
+        var grid = FindVisualChild<DataGrid>(window, item => item.Name == "TransferJobsGrid" && item.IsVisible)
+            ?? throw new InvalidOperationException("The transfer queue was not visible.");
+        Require(grid.Columns.Any(column => Equals(column.Header, "Velocidade"))
+            && grid.Columns.Any(column => Equals(column.Header, "Restante")), "Transfer speed or remaining-time columns were missing.");
+    }
 }
 
 internal sealed class QaRemoteFiles : IRemoteFileService
@@ -296,6 +330,8 @@ internal sealed class QaRemoteFiles : IRemoteFileService
     public Func<string, string, IProgress<TransferProgress>?, CancellationToken, Task>? DownloadHandler { get; set; }
     public int UploadCalls { get; private set; }
     public int DownloadCalls { get; private set; }
+    public List<(string Source, string Destination, bool Overwrite)> UploadRequests { get; } = [];
+    public List<(string Source, string Destination, bool Overwrite)> DownloadRequests { get; } = [];
     public static FileEntry Entry(string name, string path, bool directory = false)
         => new() { Name = name, FullPath = path, IsDirectory = directory, Size = directory ? 0 : 256 * 1024,
             LastModified = new DateTime(2026, 10, 29, 12, 30, 0) };
@@ -308,12 +344,14 @@ internal sealed class QaRemoteFiles : IRemoteFileService
         IProgress<TransferProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         UploadCalls++;
+        UploadRequests.Add((localPath, remoteDestination, overwrite));
         if (UploadHandler is not null) await UploadHandler(localPath, remoteDestination, progress, cancellationToken);
     }
     public async Task DownloadAsync(string remoteFile, string localDestination, bool overwrite,
         IProgress<TransferProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         DownloadCalls++;
+        DownloadRequests.Add((remoteFile, localDestination, overwrite));
         if (DownloadHandler is not null) await DownloadHandler(remoteFile, localDestination, progress, cancellationToken);
     }
 }

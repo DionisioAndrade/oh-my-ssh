@@ -239,7 +239,7 @@
                         <RowDefinition Height="6" />
                         <RowDefinition Height="1.6*" MinHeight="135" />
                         <RowDefinition Height="6" />
-                        <RowDefinition Height="1.25*" MinHeight="145" />
+                        <RowDefinition Height="1.65*" MinHeight="198" />
                     </Grid.RowDefinitions>
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>

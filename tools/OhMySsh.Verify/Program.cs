@@ -128,6 +128,9 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("SFTP queue: serial work, progress, cancellation, and profile isolation", VerifyTransferQueueAsync);
         await CheckAsync("SFTP overwrite: rejection and pending-prompt cancellation", VerifyTransferOverwriteAsync);
         await CheckAsync("SFTP lifecycle: disconnect cancels work and clears remote state", VerifyTransferDisconnectionAsync);
+        await CheckAsync("Transfer metrics: monotonic speed, remaining time, stalls, and terminal states", VerifyTransferMetricsAsync);
+        await CheckAsync("Transfer queue controls: pause, resume, cancel all, and clear completed", VerifyTransferQueueControlsAsync);
+        await CheckAsync("Transfer retry: captured targets, confirmation, reconnection, and source failures", VerifyTransferRetryAsync);
         await CheckAsync("SFTP interface: populated remote files and queue in both themes", CaptureSftpWorkspaceAsync);
         await CheckAsync("XAML: empty and saved connection center in both themes", async () =>
         {

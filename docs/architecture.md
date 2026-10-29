@@ -66,6 +66,10 @@ Both transfer directions stream through bounded buffers into staging files in th
 
 `TransferQueueView` renders the same queue in the file workspace and the dedicated transfers page, preserving the native Fluent control styles and shared theme brushes.
 
+`TransferItemViewModel` calculates speed and remaining time from a bounded recent sample window using monotonic `TimeProvider` timestamps. A dispatcher timer refreshes running-job timing when byte progress stops; terminal jobs freeze their elapsed duration. Waiting in the queue is excluded. Unknown estimates are represented explicitly rather than displaying a misleading zero.
+
+Queue pause gates job admission without interrupting the current transfer. Cancel-all cancels pending work before it can start, while atomic finalization remains authoritative. Clearing completed history detaches row notifications and never deletes files. A retry creates a fresh job from the original immutable paths and profile settings, requires a matching active endpoint, and repeats existence checks and overwrite confirmation. Failed rows remain independent of the new attempt.
+
 ## Planned integrations
 
 1. Extend the implemented SSH.NET transport with command execution and, later, tunnels through explicit capability contracts.
