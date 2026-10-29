@@ -18,9 +18,25 @@ Card commands receive a profile and resolve its ID against the current collectio
 
 `IRemoteConnectionService` defines the connection contract; `IRemoteConnectionSession` represents a confirmed session and its asynchronous cleanup. `SelectedConnection` identifies the selected profile; `ActiveConnection` comes from the connected session and retains its own snapshot, even when a saved profile is edited.
 
-The ViewModel exposes `HasActiveSession` only after awaiting the service and confirming `IsConnected`. `ActiveSessionChanged` tells the shell to open the VPS dashboard after a successful connection or return to the connection screen after disconnection. Navigation requires a session to open workspace pages, including through programmatic calls and history. The default unavailable service never returns a simulated session; QA sessions exist exclusively in the Verify project.
+The ViewModel exposes `HasActiveSession` only after awaiting the service and confirming `IsConnected`. `ActiveSessionChanged` tells the shell to open the VPS dashboard after a successful connection or return to the connection screen after disconnection. Navigation requires a session to open workspace pages, including through programmatic calls and history. `App` injects the real SSH.NET service. The unavailable service remains an explicit offline default for isolated ViewModel construction; QA sessions exist exclusively in the Verify project.
 
 The manual form supplies a temporary profile for a connection attempt. Saving it requires an explicit command and uses the same profile store. Connection attempts, failures, and cancellations leave the saved library unchanged.
+
+`IRemoteConnectionSession.Disconnected` reports transport loss. The ViewModel marshals state changes to its UI dispatcher, detaches notifications before disposal, and ignores callbacks from a superseded session. Shutdown cancels pending connection attempts and disposes the active session. Late results from canceled attempts are disposed without activating the workspace.
+
+## SSH transport, credentials, and trust
+
+`SshRemoteConnectionService` in Infrastructure uses the pinned SSH.NET dependency. It accepts SSH and SFTP profiles and rejects FTP/FTPS before opening a connection. Each attempt uses an immutable profile snapshot and a cancellation token. Profiles carry a connection timeout in seconds, validated between 1 and 300, with a 30-second default.
+
+The transport deadline starts after credential entry and includes host verification. Synchronous SSH.NET key decoding and some handshake stages may finish after the UI has observed cancellation. Abandoned workers are observed and disposed; shutdown waits for their retirement. This avoids activating late connections or disposing resources concurrently with a library stage that still owns them.
+
+Core defines temporary credentials, the credential provider, server identities, trust decisions, and a known-host store. These contracts have no WPF dependency. Native Desktop dialogs implement credential collection and first-use host verification through the dispatcher.
+
+Passwords and key passphrases are transient objects with redacted string representations. `WindowsCredentialStore` uses Windows Credential Manager for explicit opt-in persistence after successful authentication. Stored credentials are scoped to the profile and its connection settings so editing a profile cannot reuse credentials for a different endpoint. Manual connection IDs are absent from the saved library and cannot opt in. Failed cached credentials are invalidated so a retry can request fresh input.
+
+Unknown host identities display the hostname, port, algorithm, and SHA-256 fingerprint. The user may trust once, trust and remember, or reject. `JsonKnownHostStore` persists non-secret identities separately from profiles and credentials. Malformed trust data and changed keys fail closed. A changed identity requires deliberate review of the local trust entry outside the connection flow; it is never silently replaced.
+
+Connection failures use typed codes and safe English messages. Application-generated logs do not include credential objects, key contents, raw transport exceptions, or command output. Native strings retained by PasswordBox, SSH.NET, and Windows APIs cannot be guaranteed to be erased from process memory; disposal releases references and network resources.
 
 MVVM keeps search, selection, persistence, and navigation outside XAML. Code-behind handles window interactions: focus, keyboard input, double-clicks, resizing, and the system tray. Visual resources live in `Themes/Workbench.xaml`.
 
@@ -34,14 +50,18 @@ Regular windows inherit their theme from the application. Setting `Window.ThemeM
 
 `JsonConnectionProfileStore` is an initial implementation without external dependencies. Each write uses a temporary file in the same directory and replaces the destination after serialization and flushing. Read failures block profile changes in the interface to prevent overwriting a recoverable file with an empty list. A single application instance per Windows session prevents concurrent writers during normal use.
 
-SQLite should be introduced when transfer and execution history requires queries and transactions across entities. Migration should import JSON profiles, preserve the original file, and validate IDs. Credentials should be stored separately from profiles and history through the Windows credential store.
+SQLite should be introduced when transfer and execution history requires queries and transactions across entities. Migration should import JSON profiles, preserve the original file, and validate IDs. Credentials already use the Windows credential store and remain separate from profiles and future history.
 
 ## Planned integrations
 
-1. An SSH.NET adapter for authentication, command execution, SFTP, and tunnels. Host key verification must happen before accepting a session. Passwords and passphrases should be requested and stored separately from profiles.
+1. Extend the implemented SSH.NET transport with command execution and SFTP operations through explicit capability contracts. Tunnels belong to a later integration.
 2. A FluentFTP adapter for FTP/FTPS, keeping the protocol and its capabilities explicit. The profile editor defaults to explicit FTPS on port 21.
 3. A dedicated VT/ANSI terminal emulator. A shell transport requires an emulator to render interactive programs. Validate Unicode, PTY, `vim`, `tmux`, resizing, and multiple sessions before choosing the component.
 4. A transfer queue with cancellation, progress, and partial-file handling.
 5. A task automation runner independent of tabs and windows, with persisted steps, timeouts, history, and a retry policy suited to each operation.
 
 The application contains no fake adapters or simulated connected states. Profiles used in screenshots and verification are fixtures belonging to the verifier and are never inserted into the user's profile store.
+
+## Verification
+
+`scripts/Verify-OhMySsh.ps1` runs the executable WPF verification suite using isolated profiles and QA-only session doubles. `scripts/Verify-Ssh.ps1` builds a separate SSH integration executable and starts an isolated Python AsyncSSH server on loopback. The fixture uses temporary keys and credentials under `.local`, without modifying OpenSSH configuration, installing a Windows service, or contacting a VPS. See [SSH setup and verification](ssh-connections.md) for commands and prerequisites.

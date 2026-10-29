@@ -28,3 +28,13 @@ The name **oh-my-ssh** and the banner pay homage to **[Oh My Zsh](https://ohmyz.
 ## About the project
 
 The project is under development.
+
+## SSH connections
+
+Connect through the manual form or a saved VPS profile using password or private-key authentication. Encrypted private keys request a passphrase in a native dialog. The application verifies server fingerprints before accepting a connection and returns to the connection screen if the session drops.
+
+Credentials remain separate from profile JSON. Saved profiles can optionally remember credentials in Windows Credential Manager; manual connections keep credentials temporary. Connection timeouts, cancellation, disconnection, and application shutdown release the SSH transport.
+
+See [SSH setup and verification](docs/ssh-connections.md) for connection instructions, server trust, tested key formats, and local integration tests.
+
+This delivery establishes a single SSH session, including SSH transport for SFTP profiles. SFTP browsing and transfers, an interactive terminal, FTP/FTPS, and automations are subsequent milestones.

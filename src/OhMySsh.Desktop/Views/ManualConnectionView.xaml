@@ -127,10 +127,14 @@
                 <Expander.Header>
                     <StackPanel Orientation="Horizontal" Margin="10,8">
                         <TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
-                        <TextBlock Text="Nome e chave privada" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="Nome, chave privada e tempo limite" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Expander.Header>
             <Grid Margin="0,12,0,2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="140" />
                     <ColumnDefinition Width="12" />
@@ -164,6 +168,13 @@
                             <TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="16" />
                         </Button>
                     </Grid>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Margin="0,12,0,0">
+                    <Label Content="_Tempo limite (segundos)" Target="{Binding ElementName=QuickTimeoutBox}"
+                           Style="{StaticResource QuickFieldLabelStyle}" />
+                    <TextBox x:Name="QuickTimeoutBox" Width="120" HorizontalAlignment="Left" MaxLength="3"
+                             Text="{Binding ManualConnectionTimeoutSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource QuickTextBoxStyle}" AutomationProperties.Name="Connection timeout in seconds" />
                 </StackPanel>
             </Grid>
             </Expander>

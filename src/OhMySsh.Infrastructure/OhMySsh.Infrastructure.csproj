@@ -6,5 +6,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\OhMySsh.Core\OhMySsh.Core.csproj" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Licenses\*.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

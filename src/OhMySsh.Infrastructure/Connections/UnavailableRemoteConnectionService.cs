@@ -11,6 +11,6 @@ public sealed class UnavailableRemoteConnectionService : IRemoteConnectionServic
         ArgumentNullException.ThrowIfNull(profile);
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromException<IRemoteConnectionSession>(new NotSupportedException(
-            "A conexão remota ainda não está disponível nesta versão. Você pode salvar a VPS para usar depois. Nenhuma conexão foi iniciada."));
+            "Remote connections are unavailable because no connection adapter was configured. No connection was started."));
     }
 }

@@ -6,4 +6,5 @@ namespace OhMySsh.Core.Abstractions;
 public interface IRemoteConnectionService
 {
     Task<IRemoteConnectionSession> ConnectAsync(ConnectionProfile profile, CancellationToken cancellationToken = default);
+    Task ShutdownAsync() => Task.CompletedTask;
 }

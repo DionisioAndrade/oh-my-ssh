@@ -14,5 +14,6 @@ public sealed record ConnectionProfile
     public string Group { get; init; } = "Geral";
     public ConnectionProtocol Protocol { get; init; } = ConnectionProtocol.Ssh;
     public string? PrivateKeyPath { get; init; }
+    public int ConnectionTimeoutSeconds { get; init; } = 30;
     public bool IsFavorite { get; init; }
 }

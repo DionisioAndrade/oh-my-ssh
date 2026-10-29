@@ -18,6 +18,8 @@ public partial class MainWindow : Window
     private string _currentPage = "connections";
     private bool _navigationReady;
     private bool _updatingThemePicker;
+    private bool _shutdownStarted;
+    private bool _shutdownCompleted;
 
     public MainWindow(MainViewModel viewModel, bool initializeOnLoad = true)
     {
@@ -56,7 +58,46 @@ public partial class MainWindow : Window
         Activate();
     }
 
-    private void Window_Closing(object? sender, CancelEventArgs e)
+    private async void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        if (_shutdownCompleted)
+        {
+            ReleaseWindowResources();
+            return;
+        }
+
+        e.Cancel = true;
+        if (_shutdownStarted)
+        {
+            return;
+        }
+
+        _shutdownStarted = true;
+        var shutdown = _viewModel.ShutdownAsync();
+        if (shutdown.IsCompletedSuccessfully)
+        {
+            _shutdownCompleted = true;
+            e.Cancel = false;
+            ReleaseWindowResources();
+            return;
+        }
+
+        // Let the closing event return before issuing Close again after asynchronous cleanup.
+        await System.Windows.Threading.Dispatcher.Yield();
+        try
+        {
+            await shutdown;
+        }
+        catch (Exception exception)
+        {
+            ApplicationLog.WriteFailure("Connection shutdown", exception);
+        }
+
+        _shutdownCompleted = true;
+        Close();
+    }
+
+    private void ReleaseWindowResources()
     {
         _tray?.Dispose();
         ThemeService.Current.ThemeChanged -= OnThemeChanged;

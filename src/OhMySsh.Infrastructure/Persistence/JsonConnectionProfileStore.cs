@@ -53,7 +53,7 @@ public sealed class JsonConnectionProfileStore : IConnectionProfileStore
             {
                 var profiles = await JsonSerializer.DeserializeAsync<List<ConnectionProfile>>(
                     stream, SerializerOptions, cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidDataException("O arquivo de conexões está vazio ou possui formato inválido.");
+                    ?? throw new InvalidDataException("The connection profile file is empty or has an invalid format.");
 
                 ValidateProfiles(profiles);
                 return profiles.ToArray();
@@ -62,7 +62,7 @@ public sealed class JsonConnectionProfileStore : IConnectionProfileStore
         catch (JsonException exception)
         {
             throw new InvalidDataException(
-                "Não foi possível ler o arquivo de conexões. Verifique se o JSON é válido.", exception);
+                "The connection profile file could not be read. Check that it contains valid JSON.", exception);
         }
         finally
         {
@@ -139,18 +139,19 @@ public sealed class JsonConnectionProfileStore : IConnectionProfileStore
         {
             if (profile is null || profile.Id == Guid.Empty || !ids.Add(profile.Id))
             {
-                throw new InvalidDataException("As conexões devem possuir identificadores únicos e válidos.");
+                throw new InvalidDataException("Connection profiles must have valid, unique identifiers.");
             }
 
             if (string.IsNullOrWhiteSpace(profile.Name) || string.IsNullOrWhiteSpace(profile.Host)
                 || string.IsNullOrWhiteSpace(profile.Username) || string.IsNullOrWhiteSpace(profile.Group))
             {
-                throw new InvalidDataException("Uma conexão possui nome, servidor, usuário ou grupo em branco.");
+                throw new InvalidDataException("A connection profile has a blank name, host, username, or group.");
             }
 
-            if (profile.Port is < 1 or > 65535 || !Enum.IsDefined(profile.Protocol))
+            if (profile.Port is < 1 or > 65535 || !Enum.IsDefined(profile.Protocol)
+                || profile.ConnectionTimeoutSeconds is < 1 or > 300)
             {
-                throw new InvalidDataException("Uma conexão possui porta ou protocolo inválido.");
+                throw new InvalidDataException("A connection profile has an invalid port, protocol, or connection timeout.");
             }
         }
     }

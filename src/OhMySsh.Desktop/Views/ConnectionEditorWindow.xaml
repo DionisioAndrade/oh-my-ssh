@@ -125,6 +125,15 @@
                                Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
 
+                <StackPanel Margin="0,20,0,0">
+                    <Label Content="_Tempo limite da conexão (segundos)" Target="{Binding ElementName=TimeoutTextBox}"
+                           Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox x:Name="TimeoutTextBox" Text="30" Width="120" HorizontalAlignment="Left" MaxLength="3"
+                             Style="{StaticResource EditorTextBoxStyle}" AutomationProperties.Name="Connection timeout in seconds" />
+                    <TextBlock Text="De 1 a 300 segundos. Inclui autenticação e confirmação da identidade do servidor."
+                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+
             </StackPanel>
         </ScrollViewer>
         </Border>

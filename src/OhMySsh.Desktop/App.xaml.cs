@@ -5,6 +5,7 @@ using System.Windows;
 using OhMySsh.Desktop.Services;
 using OhMySsh.Desktop.ViewModels;
 using OhMySsh.Infrastructure.Files;
+using OhMySsh.Infrastructure.Connections;
 using OhMySsh.Infrastructure.Persistence;
 
 namespace OhMySsh.Desktop;
@@ -45,7 +46,12 @@ public partial class App : Application
         }
 
         _activationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivationEventName);
-        var viewModel = new MainViewModel(new JsonConnectionProfileStore(), new LocalFileService(), new DesktopInteractionService());
+        MainViewModel? viewModel = null;
+        var sshInteractions = new DesktopSshInteractionService(new WindowsCredentialStore(),
+            id => viewModel?.Connections.Any(profile => profile.Id == id) == true, Dispatcher);
+        var remoteConnections = new SshRemoteConnectionService(sshInteractions, sshInteractions, new JsonKnownHostStore());
+        viewModel = new MainViewModel(new JsonConnectionProfileStore(), new LocalFileService(),
+            new DesktopInteractionService(), remoteConnections, ApplicationLog.Write);
         var window = new MainWindow(viewModel);
         MainWindow = window;
         _activationRegistration = ThreadPool.RegisterWaitForSingleObject(
@@ -55,17 +61,8 @@ public partial class App : Application
 
         DispatcherUnhandledException += (_, args) =>
         {
-            // Preserve diagnostics locally without turning recoverable UI failures into silent exits.
-            try
-            {
-                var logFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OhMySsh", "logs");
-                Directory.CreateDirectory(logFolder);
-                File.AppendAllText(Path.Combine(logFolder, "application.log"), $"{DateTimeOffset.Now:O} {args.Exception}\n");
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                // The original error is still displayed if diagnostics cannot be written.
-            }
+            // Record a safe failure category; raw exception text can contain supplied secrets.
+            ApplicationLog.WriteFailure("Unhandled UI operation", args.Exception);
 
             MessageBox.Show(window, "Não foi possível concluir a operação. Feche e abra o aplicativo se o problema continuar.",
                 "oh-my-ssh", MessageBoxButton.OK, MessageBoxImage.Error);

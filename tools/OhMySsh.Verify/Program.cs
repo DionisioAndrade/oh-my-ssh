@@ -16,6 +16,7 @@ using OhMySsh.Desktop.Services;
 using OhMySsh.Desktop.ViewModels;
 using OhMySsh.Desktop.Views;
 using OhMySsh.Infrastructure.Files;
+using OhMySsh.Infrastructure.Connections;
 using OhMySsh.Infrastructure.Persistence;
 
 namespace OhMySsh.Verify;
@@ -32,7 +33,7 @@ internal static class Program
             var outputParent = args.Length == 0 ? localRoot : Path.GetFullPath(args[0], repositoryRoot);
             if (!IsWithin(outputParent, localRoot))
             {
-                throw new ArgumentException("A saída da verificação deve ficar dentro de .local no repositório.");
+                throw new ArgumentException("Verification output must remain inside the repository's .local directory.");
             }
 
             var outputDirectory = Path.Combine(outputParent, $"verify-{Guid.NewGuid():N}");
@@ -48,7 +49,7 @@ internal static class Program
                 TaskScheduler.Default);
             application.Run();
             execution.GetAwaiter().GetResult();
-            Console.WriteLine($"Relatório: {Path.Combine(outputDirectory, "verification.json")}");
+            Console.WriteLine($"Report: {Path.Combine(outputDirectory, "verification.json")}");
             return runner.FailureCount == 0 ? 0 : 1;
         }
         catch (Exception exception)
@@ -69,7 +70,7 @@ internal static class Program
             }
         }
 
-        throw new DirectoryNotFoundException("Não foi possível localizar o repositório da verificação.");
+        throw new DirectoryNotFoundException("The verification repository could not be located.");
     }
 
     private static bool IsWithin(string path, string directory)
@@ -93,7 +94,7 @@ internal sealed class VerificationRunner(Application application, string outputD
 
     public async Task RunAsync()
     {
-        await CheckAsync("XAML: recursos compartilhados", () =>
+        await CheckAsync("XAML: shared resources", () =>
         {
             application.Resources.MergedDictionaries.Add(new ResourceDictionary
             {
@@ -108,28 +109,32 @@ internal sealed class VerificationRunner(Application application, string outputD
             return Task.CompletedTask;
         });
 
-        await CheckAsync("Fixtures: dados isolados de QA", CreateFixturesAsync);
-        await CheckAsync("Perfis: persistência e leitura de todos os campos", VerifyProfileRoundtripAsync);
-        await CheckAsync("Perfis: cadastro, edição, busca, favoritos e exclusão", VerifyProfileCrudAsync);
-        await CheckAsync("VPS: cadastro, edição e favorito sobrevivem ao reinício", VerifySavedVpsLifecycleAsync);
-        await CheckAsync("VPS: comando SSH copiável com argumentos e apóstrofos protegidos", VerifySshCommandCopyAsync);
-        await CheckAsync("Perfis: falha ao salvar preserva os dados carregados", VerifyFailedSaveAsync);
-        await CheckAsync("Perfis: JSON inválido bloqueia alterações e preserva o arquivo", VerifyFailedLoadAsync);
-        await CheckAsync("Arquivos: navegação real e falha sem perda da listagem", VerifyLocalNavigationAsync);
-        await CheckAsync("Arquivos: navegação simultânea não mistura resultados", VerifyConcurrentNavigationAsync);
-        await CheckAsync("Conexão manual: validação, sessão sem salvar e salvamento explícito", VerifyManualConnectionAsync);
-        await CheckAsync("Conexão: gate, confirmação aguardada, falha, cancelamento e desconexão", VerifyConnectionSessionStateAsync);
-        await CheckAsync("XAML: central de conexão vazia e salva nos dois temas", async () =>
+        await CheckAsync("Fixtures: isolated QA data", CreateFixturesAsync);
+        await CheckAsync("Profiles: persistence and loading of every field", VerifyProfileRoundtripAsync);
+        await CheckAsync("Profiles: create, edit, search, favorite, and delete", VerifyProfileCrudAsync);
+        await CheckAsync("VPS: creation, editing, and favorites survive restart", VerifySavedVpsLifecycleAsync);
+        await CheckAsync("VPS: copyable SSH command with escaped arguments and apostrophes", VerifySshCommandCopyAsync);
+        await CheckAsync("Profiles: failed saves preserve loaded data", VerifyFailedSaveAsync);
+        await CheckAsync("Profiles: invalid JSON blocks changes and preserves the file", VerifyFailedLoadAsync);
+        await CheckAsync("Files: actual navigation and failure without losing the listing", VerifyLocalNavigationAsync);
+        await CheckAsync("Files: concurrent navigation does not mix results", VerifyConcurrentNavigationAsync);
+        await CheckAsync("Manual connection: validation, temporary session, and explicit saving", VerifyManualConnectionAsync);
+        await CheckAsync("Connection: gate, awaited confirmation, failure, cancellation, and disconnection", VerifyConnectionSessionStateAsync);
+        await CheckAsync("Connection: remote loss, stale callbacks, retry, and shutdown", VerifyConnectionLossAndShutdownAsync);
+        await CheckAsync("Connection: English diagnostic messages and sanitized failures", VerifyEnglishConnectionDiagnosticsAsync);
+        await CheckAsync("SSH dialogs: secrets, manual credentials, trust decisions, and themes", VerifySshDialogsAsync);
+        await CheckAsync("SSH prompts: cancellation closes pending credential and host dialogs", VerifyPromptCancellationAsync);
+        await CheckAsync("XAML: empty and saved connection center in both themes", async () =>
         {
             await CaptureConnectionsPageAsync(false);
             await CaptureConnectionsPageAsync(true);
         });
-        await CheckAsync("XAML: painel e workspace somente com sessão confirmada", CaptureConnectedWorkspaceAsync);
-        await CheckAsync("Layout: central de conexão e workspace no tamanho mínimo", VerifyMinimumLayoutAsync);
-        await CheckAsync("XAML: editor e validação de servidor", VerifyConnectionEditorAsync);
-        await CheckAsync("XAML: editor de QA nos temas claro e escuro", CaptureEditorAsync);
-        await CheckAsync("Temas e navegação: preservam perfis, seleção e arquivos", VerifyThemeNavigationStateAsync);
-        await CheckAsync("Bindings WPF: nenhuma falha", () =>
+        await CheckAsync("XAML: dashboard and workspace require a confirmed session", CaptureConnectedWorkspaceAsync);
+        await CheckAsync("Layout: connection center and workspace at minimum size", VerifyMinimumLayoutAsync);
+        await CheckAsync("XAML: editor and server validation", VerifyConnectionEditorAsync);
+        await CheckAsync("XAML: QA editor in light and dark themes", CaptureEditorAsync);
+        await CheckAsync("Themes and navigation preserve profiles, selection, and files", VerifyThemeNavigationStateAsync);
+        await CheckAsync("WPF bindings: no failures", () =>
         {
             Require(_bindingErrors.Messages.Count == 0, string.Join(Environment.NewLine, _bindingErrors.Messages));
             return Task.CompletedTask;
@@ -146,12 +151,12 @@ internal sealed class VerificationRunner(Application application, string outputD
             Checks = _checks,
             Screenshots = _screenshots,
             BindingErrors = _bindingErrors.Messages,
-            FixtureNotice = "Todos os servidores são fictícios em example.invalid. Sessões controladas de QA existem apenas no verificador; nenhuma conexão de rede foi iniciada."
+            FixtureNotice = "All servers are fixtures under example.invalid. Controlled QA sessions exist only in this verifier; no network connection was opened."
         };
         await File.WriteAllTextAsync(Path.Combine(outputDirectory, "verification.json"),
             JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
         var text = new StringBuilder();
-        text.AppendLine($"oh-my-ssh — verificação inicial: {report.Passed} passaram, {report.Failed} falharam");
+        text.AppendLine($"oh-my-ssh verification: {report.Passed} passed, {report.Failed} failed");
         foreach (var check in _checks)
         {
             text.AppendLine($"{(check.Passed ? "PASS" : "FAIL")} {check.Name} ({check.DurationMs} ms)");
@@ -171,27 +176,27 @@ internal sealed class VerificationRunner(Application application, string outputD
         Directory.CreateDirectory(Path.Combine(_workspace, "deploy"));
         Directory.CreateDirectory(Path.Combine(_workspace, "logs"));
         Directory.CreateDirectory(Path.Combine(_workspace, "scripts"));
-        await File.WriteAllTextAsync(Path.Combine(_workspace, "README.md"), "# Workspace de QA\nArquivos fictícios para validar a interface.\n");
+        await File.WriteAllTextAsync(Path.Combine(_workspace, "README.md"), "# QA workspace\nFixture files for interface verification.\n");
         await File.WriteAllTextAsync(Path.Combine(_workspace, "deploy", "release.txt"), "qa-release-0.1.0\n");
-        await File.WriteAllTextAsync(Path.Combine(_workspace, "deploy.ps1"), "# Fixture de QA; não executada.\n");
+        await File.WriteAllTextAsync(Path.Combine(_workspace, "deploy.ps1"), "# QA fixture; not executed.\n");
         await File.WriteAllTextAsync(Path.Combine(_workspace, "manifest.json"), "{\"environment\":\"qa\",\"version\":\"0.1.0\"}\n");
     }
 
     private async Task VerifyProfileRoundtripAsync()
     {
         var store = new JsonConnectionProfileStore(Path.Combine(outputDirectory, "roundtrip", "connections.json"));
-        Require((await store.LoadAsync()).Count == 0, "Um arquivo ausente deve produzir uma lista vazia.");
+        Require((await store.LoadAsync()).Count == 0, "A missing file must produce an empty list.");
         ConnectionProfile[] profiles = [CreateProfile(), CreateProfile() with
         {
             Id = Guid.NewGuid(), Name = "Arquivos de QA", Host = "files.example.invalid", Protocol = ConnectionProtocol.Ftps, Port = 21,
             PrivateKeyPath = null, IsFavorite = false
         }];
         await store.SaveAsync(profiles);
-        Require((await store.LoadAsync()).SequenceEqual(profiles), "O roundtrip alterou campos dos perfis.");
+        Require((await store.LoadAsync()).SequenceEqual(profiles), "The serialization round trip changed profile fields.");
         var original = await File.ReadAllTextAsync(store.StoragePath);
         await ExpectExceptionAsync<InvalidDataException>(() => store.SaveAsync([profiles[0], profiles[0]]));
-        Require(await File.ReadAllTextAsync(store.StoragePath) == original, "Uma gravação inválida alterou o arquivo existente.");
-        Require(!Directory.EnumerateFiles(Path.GetDirectoryName(store.StoragePath)!, "*.tmp").Any(), "Restou um arquivo temporário após a gravação.");
+        Require(await File.ReadAllTextAsync(store.StoragePath) == original, "An invalid write changed the existing file.");
+        Require(!Directory.EnumerateFiles(Path.GetDirectoryName(store.StoragePath)!, "*.tmp").Any(), "A temporary file remained after saving.");
     }
 
     private async Task VerifyProfileCrudAsync()
@@ -199,40 +204,40 @@ internal sealed class VerificationRunner(Application application, string outputD
         var store = new MemoryProfileStore();
         var interactions = new RecordingInteractions();
         var viewModel = CreateViewModel(store, interactions);
-        Require(!viewModel.AddConnectionCommand.CanExecute(null), "O cadastro foi liberado antes de carregar o store.");
+        Require(!viewModel.AddConnectionCommand.CanExecute(null), "Creation was enabled before the store loaded.");
         await viewModel.InitializeAsync();
-        Require(viewModel.ProfilesAvailable && viewModel.AddConnectionCommand.CanExecute(null), "O cadastro não foi liberado após uma leitura válida.");
+        Require(viewModel.ProfilesAvailable && viewModel.AddConnectionCommand.CanExecute(null), "Creation was not enabled after a successful load.");
         var profile = CreateProfile();
         interactions.EditResults.Enqueue(profile);
         await viewModel.AddConnectionCommand.ExecuteAsync();
-        Require(viewModel.ConnectionCount == 1 && viewModel.SelectedConnection?.Id == profile.Id, "O cadastro não selecionou o perfil salvo.");
-        Require(store.Profiles.Single() == profile, "O cadastro não foi persistido.");
+        Require(viewModel.ConnectionCount == 1 && viewModel.SelectedConnection?.Id == profile.Id, "Creation did not select the saved profile.");
+        Require(store.Profiles.Single() == profile, "The new profile was not persisted.");
 
         var second = profile with { Id = Guid.NewGuid(), Name = "Backup de QA", Host = "backup.example.invalid", IsFavorite = false };
         interactions.EditResults.Enqueue(second);
         await viewModel.AddConnectionCommand.ExecuteAsync();
         viewModel.SearchText = "EDGE.EXAMPLE";
-        Require(viewModel.FilteredConnections.Cast<ConnectionProfile>().Single().Id == profile.Id, "A busca por host deve ignorar maiúsculas.");
+        Require(viewModel.FilteredConnections.Cast<ConnectionProfile>().Single().Id == profile.Id, "Host search must be case-insensitive.");
         viewModel.SearchText = "";
         viewModel.FilterFavoritesCommand.Execute(null);
-        Require(viewModel.FilteredConnections.Cast<ConnectionProfile>().Single().IsFavorite, "O filtro de favoritos incluiu outro perfil.");
+        Require(viewModel.FilteredConnections.Cast<ConnectionProfile>().Single().IsFavorite, "The favorites filter included another profile.");
         viewModel.FilterFavoritesCommand.Execute(null);
         viewModel.SelectedConnection = profile;
         var edited = profile with { Name = "Edge QA atualizado", Port = 2222 };
         interactions.EditResults.Enqueue(edited);
         await viewModel.EditConnectionCommand.ExecuteAsync();
-        Require(viewModel.SelectedConnection == edited && store.Profiles.Any(item => item == edited), "A edição não preservou a seleção e a persistência.");
+        Require(viewModel.SelectedConnection == edited && store.Profiles.Any(item => item == edited), "Editing did not preserve selection and persistence.");
         viewModel.CopyEndpointCommand.Execute(null);
-        Require(interactions.ClipboardText == "deploy@edge.example.invalid:2222", "O endereço copiado está incorreto.");
+        Require(interactions.ClipboardText == "deploy@edge.example.invalid:2222", "The copied endpoint is incorrect.");
         var saveCount = store.SaveCalls;
         var messageCount = interactions.Messages.Count;
         await viewModel.ConnectCommand.ExecuteAsync();
         Require(!viewModel.HasActiveSession && !viewModel.IsConnecting && !string.IsNullOrWhiteSpace(viewModel.ConnectionError),
-            "O adaptador padrão marcou uma conexão como ativa ou não exibiu o erro inline.");
-        Require(interactions.Messages.Count == messageCount, "Uma conexão indisponível abriu um aviso modal em vez do erro inline.");
-        Require(store.SaveCalls == saveCount, "Tentar conectar alterou os perfis salvos.");
+            "The default adapter activated a session or failed to show the inline error.");
+        Require(interactions.Messages.Count == messageCount, "An unavailable connection opened a modal instead of showing an inline error.");
+        Require(store.SaveCalls == saveCount, "Attempting a connection changed saved profiles.");
         await viewModel.DeleteConnectionCommand.ExecuteAsync();
-        Require(viewModel.ConnectionCount == 1 && store.Profiles.Single().Id == second.Id, "A exclusão não foi persistida.");
+        Require(viewModel.ConnectionCount == 1 && store.Profiles.Single().Id == second.Id, "Deletion was not persisted.");
     }
 
     private async Task VerifyFailedSaveAsync()
@@ -249,18 +254,18 @@ internal sealed class VerificationRunner(Application application, string outputD
         viewModel.ProfileSaved += (_, _) => savedEvents++;
         interactions.EditResults.Enqueue(original with { Name = "Esta alteração não pode ser salva" });
         await ExpectExceptionAsync<IOException>(() => viewModel.EditConnectionCommand.ExecuteAsync());
-        Require(viewModel.Connections.Single() == original, "Uma gravação falha alterou a lista exibida.");
-        Require(viewModel.SelectedConnection == original && !viewModel.IsBusy, "Uma gravação falha perdeu a seleção ou deixou a janela ocupada.");
-        Require(store.Profiles.Single() == original, "A fixture alterou o store apesar da falha simulada.");
+        Require(viewModel.Connections.Single() == original, "A failed save changed the displayed list.");
+        Require(viewModel.SelectedConnection == original && !viewModel.IsBusy, "A failed save lost selection or left the window busy.");
+        Require(store.Profiles.Single() == original, "The fixture changed the store despite the simulated failure.");
         Require(viewModel.SearchText == "filtro que precisa permanecer" && viewModel.FavoritesOnly,
-            "Uma edição que falhou limpou os filtros.");
+            "A failed edit cleared the filters.");
 
         interactions.EditResults.Enqueue(original with { Id = Guid.NewGuid(), Name = "Cadastro que falha", IsFavorite = false });
         await ExpectExceptionAsync<IOException>(() => viewModel.AddConnectionCommand.ExecuteAsync());
         Require(viewModel.Connections.Single() == original && viewModel.SelectedConnection == original,
-            "Um cadastro que falhou alterou os perfis ou a seleção.");
+            "A failed creation changed profiles or selection.");
         Require(viewModel.SearchText == "filtro que precisa permanecer" && viewModel.FavoritesOnly && savedEvents == 0,
-            "Um cadastro que falhou limpou filtros ou emitiu o evento de perfil salvo.");
+            "A failed creation cleared filters or raised the profile-saved event.");
     }
 
     private async Task VerifySavedVpsLifecycleAsync()
@@ -281,15 +286,15 @@ internal sealed class VerificationRunner(Application application, string outputD
         interactions.EditResults.Enqueue(original);
         await viewModel.AddConnectionCommand.ExecuteAsync();
         Require(viewModel.SelectedConnection == original && viewModel.FilteredConnections.Cast<ConnectionProfile>().Single() == original,
-            "Salvar uma VPS não a selecionou na lista visível.");
+            "Saving a VPS did not select it in the visible list.");
         Require(viewModel.SearchText.Length == 0 && !viewModel.FavoritesOnly && savedEvents == 1,
-            "O cadastro salvo não limpou filtros ou não notificou o shell.");
+            "Saving a profile did not clear filters or notify the shell.");
 
         // A new store and view model represent closing and reopening the app.
         var restarted = CreateViewModel(new JsonConnectionProfileStore(storagePath), new RecordingInteractions());
         await restarted.InitializeAsync();
         Require(restarted.Connections.Single() == original && restarted.SelectedConnection == original,
-            "Reabrir o aplicativo alterou os campos da VPS salva.");
+            "Restarting the app changed the saved VPS fields.");
 
         var edited = original with
         {
@@ -302,25 +307,25 @@ internal sealed class VerificationRunner(Application application, string outputD
         interactions.EditResults.Enqueue(edited);
         await viewModel.EditConnectionCommand.ExecuteAsync(original);
         Require(viewModel.SelectedConnection == edited && viewModel.SearchText.Length == 0 && !viewModel.FavoritesOnly && savedEvents == 2,
-            "Editar por parâmetro não preservou o perfil alvo ou não o tornou visível.");
+            "Editing by parameter lost the target profile or did not reveal it.");
 
         restarted = CreateViewModel(new JsonConnectionProfileStore(storagePath), new RecordingInteractions());
         await restarted.InitializeAsync();
-        Require(restarted.Connections.Single() == edited, "A edição de todos os campos não sobreviveu ao reinício.");
+        Require(restarted.Connections.Single() == edited, "Edits to all fields did not survive restart.");
         await restarted.ToggleFavoriteCommand.ExecuteAsync(edited);
         var favorite = edited with { IsFavorite = true };
-        Require(restarted.SelectedConnection == favorite, "Favoritar perdeu a seleção do perfil.");
+        Require(restarted.SelectedConnection == favorite, "Favoriting lost profile selection.");
 
         var deleteInteractions = new RecordingInteractions { AllowDelete = false };
         var deleteViewModel = CreateViewModel(new JsonConnectionProfileStore(storagePath), deleteInteractions);
         await deleteViewModel.InitializeAsync();
-        Require(deleteViewModel.Connections.Single() == favorite, "O favorito não sobreviveu ao reinício.");
+        Require(deleteViewModel.Connections.Single() == favorite, "The favorite did not survive restart.");
         var originalFile = await File.ReadAllBytesAsync(storagePath);
         await deleteViewModel.DeleteConnectionCommand.ExecuteAsync(favorite);
         Require(deleteInteractions.ConfirmDeleteCalls == 1 && deleteViewModel.Connections.Single() == favorite,
-            "Cancelar a confirmação removeu o perfil da interface.");
+            "Canceling confirmation removed the profile from the interface.");
         Require((await File.ReadAllBytesAsync(storagePath)).SequenceEqual(originalFile),
-            "Cancelar a exclusão alterou o arquivo de perfis.");
+            "Canceling deletion changed the profile file.");
 
         deleteInteractions.AllowDelete = true;
         // Deny replacement of the real JSON destination to exercise an actual
@@ -337,19 +342,19 @@ internal sealed class VerificationRunner(Application application, string outputD
                 failedToReplace = true;
             }
 
-            Require(failedToReplace, "A fixture não conseguiu impedir a substituição do arquivo de perfis.");
+            Require(failedToReplace, "The fixture could not prevent replacement of the profile file.");
             Require(deleteViewModel.Connections.Single() == favorite && deleteViewModel.SelectedConnection == favorite && !deleteViewModel.IsBusy,
-                "Uma falha real de exclusão alterou a lista/seleção ou deixou o shell ocupado.");
+                "An actual deletion failure changed the list/selection or left the shell busy.");
             Require((await File.ReadAllBytesAsync(storagePath)).SequenceEqual(originalFile),
-                "Uma falha real de exclusão alterou o arquivo original.");
+                "An actual deletion failure changed the original file.");
         }
 
         Require(!Directory.EnumerateFiles(Path.GetDirectoryName(storagePath)!, "*.tmp").Any(),
-            "Uma falha real de gravação deixou um arquivo temporário.");
+            "An actual write failure left a temporary file.");
         await deleteViewModel.DeleteConnectionCommand.ExecuteAsync(favorite);
         restarted = CreateViewModel(new JsonConnectionProfileStore(storagePath), new RecordingInteractions());
         await restarted.InitializeAsync();
-        Require(restarted.Connections.Count == 0, "Uma exclusão confirmada reapareceu após reiniciar.");
+        Require(restarted.Connections.Count == 0, "A confirmed deletion reappeared after restart.");
     }
 
     private async Task VerifySshCommandCopyAsync()
@@ -363,19 +368,19 @@ internal sealed class VerificationRunner(Application application, string outputD
         var viewModel = CreateViewModel(new MemoryProfileStore([profile, ftp]), interactions);
         await viewModel.InitializeAsync();
         viewModel.SelectedConnection = ftp;
-        Require(viewModel.CopySshCommand.CanExecute(profile), "O comando SSH deve aceitar um perfil SSH passado como parâmetro.");
+        Require(viewModel.CopySshCommand.CanExecute(profile), "The SSH command must accept an SSH profile passed as a parameter.");
         viewModel.CopySshCommand.Execute(profile);
         const string expected = "ssh -l 'ops''build' -p 2222 -i 'C:\\QA\\keys\\O''Brien_ed25519' -- 'edge.example.invalid'";
-        Require(interactions.ClipboardText == expected, "O comando SSH perdeu usuário, porta, chave ou escape de apóstrofos para PowerShell.");
-        Require(viewModel.SelectedConnection == ftp, "Copiar um comando de outro cartão alterou a seleção.");
-        Require(!viewModel.CopySshCommand.CanExecute(ftp), "Um perfil FTP não deve produzir um comando SSH.");
+        Require(interactions.ClipboardText == expected, "The SSH command lost the user, port, key, or PowerShell apostrophe escaping.");
+        Require(viewModel.SelectedConnection == ftp, "Copying a command from another card changed selection.");
+        Require(!viewModel.CopySshCommand.CanExecute(ftp), "An FTP profile must not produce an SSH command.");
         viewModel.CopySshCommand.Execute(ftp);
-        Require(interactions.ClipboardText == expected, "Um perfil FTP sobrescreveu o comando SSH copiado.");
+        Require(interactions.ClipboardText == expected, "An FTP profile overwrote the copied SSH command.");
 
         viewModel.SelectConnectionCommand.Execute(profile);
-        Require(viewModel.SelectedConnection == profile, "Selecionar um cartão não ativou o perfil correspondente.");
+        Require(viewModel.SelectedConnection == profile, "Selecting a card did not select its associated profile.");
         var unknown = profile with { Id = Guid.NewGuid() };
-        Require(!viewModel.SelectConnectionCommand.CanExecute(unknown), "Selecionar deve recusar perfis que não pertencem à coleção.");
+        Require(!viewModel.SelectConnectionCommand.CanExecute(unknown), "Selection must reject profiles outside the collection.");
     }
 
     private async Task VerifyFailedLoadAsync()
@@ -387,18 +392,18 @@ internal sealed class VerificationRunner(Application application, string outputD
         var interactions = new RecordingInteractions();
         var viewModel = CreateViewModel(new JsonConnectionProfileStore(storagePath), interactions);
         await viewModel.InitializeAsync();
-        Require(!viewModel.ProfilesAvailable && viewModel.StatusKind == "Error", "Uma falha de leitura foi escondida pelo sucesso da navegação local.");
+        Require(!viewModel.ProfilesAvailable && viewModel.StatusKind == "Error", "Successful local navigation hid a profile load failure.");
         Require(!viewModel.AddConnectionCommand.CanExecute(null)
             && !viewModel.EditConnectionCommand.CanExecute(null)
-            && !viewModel.DeleteConnectionCommand.CanExecute(null), "Uma falha de leitura não bloqueou o CRUD.");
+            && !viewModel.DeleteConnectionCommand.CanExecute(null), "A load failure did not block profile changes.");
         interactions.EditResults.Enqueue(CreateProfile());
         await viewModel.AddConnectionCommand.ExecuteAsync();
         await viewModel.EditConnectionCommand.ExecuteAsync();
         await viewModel.DeleteConnectionCommand.ExecuteAsync();
         await viewModel.NavigateToAsync(_workspace);
-        Require(viewModel.StatusKind == "Error", "Abrir uma pasta ocultou o erro no arquivo de conexões.");
-        Require(interactions.EditCalls == 0, "Uma operação bloqueada abriu o editor.");
-        Require(await File.ReadAllTextAsync(storagePath) == invalidOriginal, "O arquivo recuperável foi sobrescrito após falha de leitura.");
+        Require(viewModel.StatusKind == "Error", "Opening a folder hid the connection file error.");
+        Require(interactions.EditCalls == 0, "A blocked operation opened the editor.");
+        Require(await File.ReadAllTextAsync(storagePath) == invalidOriginal, "The recoverable file was overwritten after a load failure.");
     }
 
     private async Task VerifyLocalNavigationAsync()
@@ -407,14 +412,14 @@ internal sealed class VerificationRunner(Application application, string outputD
         await viewModel.InitializeAsync();
         var selected = viewModel.SelectedConnection;
         await viewModel.NavigateToAsync(_workspace);
-        Require(viewModel.LocalEntries.Count == 6, "A navegação não exibiu os arquivos da fixture.");
-        Require(viewModel.LocalEntries.Take(3).All(entry => entry.IsDirectory), "As pastas devem aparecer antes dos arquivos.");
+        Require(viewModel.LocalEntries.Count == 6, "Navigation did not display fixture files.");
+        Require(viewModel.LocalEntries.Take(3).All(entry => entry.IsDirectory), "Directories must appear before files.");
         var originalEntries = viewModel.LocalEntries.ToArray();
         await viewModel.NavigateToAsync(Path.Combine(_workspace, "pasta-inexistente"));
-        Require(viewModel.LocalPath == _workspace && viewModel.LocalEntries.SequenceEqual(originalEntries), "Uma pasta inexistente alterou o caminho carregado ou a listagem.");
-        Require(viewModel.SelectedConnection == selected, "Uma falha de navegação alterou o perfil selecionado.");
+        Require(viewModel.LocalPath == _workspace && viewModel.LocalEntries.SequenceEqual(originalEntries), "A missing directory changed the loaded path or listing.");
+        Require(viewModel.SelectedConnection == selected, "A navigation failure changed the selected profile.");
         await viewModel.OpenLocalEntryCommand.ExecuteAsync(originalEntries.First(entry => entry.Name == "deploy"));
-        Require(viewModel.LocalEntries.Single().Name == "release.txt", "Abrir uma pasta não navegou para seu conteúdo.");
+        Require(viewModel.LocalEntries.Single().Name == "release.txt", "Opening a directory did not navigate to its contents.");
         await viewModel.GoUpCommand.ExecuteAsync();
         Require(viewModel.LocalPath == _workspace, "Voltar deve utilizar o caminho carregado.");
     }
@@ -427,12 +432,12 @@ internal sealed class VerificationRunner(Application application, string outputD
         var viewModel = new MainViewModel(new MemoryProfileStore(), files, new RecordingInteractions());
         await viewModel.InitializeAsync();
         var first = viewModel.NavigateToAsync(delayedPath);
-        Require(viewModel.IsBusy, "A navegação pendente não bloqueou os comandos.");
+        Require(viewModel.IsBusy, "Pending navigation did not block commands.");
         await viewModel.NavigateToAsync(ignoredPath);
         files.Completion.SetResult([new FileEntry { Name = "slow-result.txt", FullPath = Path.Combine(delayedPath, "slow-result.txt") }]);
         await first;
-        Require(viewModel.LocalPath == delayedPath && viewModel.LocalEntries.Single().Name == "slow-result.txt", "A navegação aplicou uma listagem fora de ordem.");
-        Require(!files.RequestedPaths.Contains(ignoredPath) && !viewModel.IsBusy, "Uma navegação concorrente foi iniciada ou deixou o shell ocupado.");
+        Require(viewModel.LocalPath == delayedPath && viewModel.LocalEntries.Single().Name == "slow-result.txt", "Navigation applied an out-of-order listing.");
+        Require(!files.RequestedPaths.Contains(ignoredPath) && !viewModel.IsBusy, "Concurrent navigation started or left the shell busy.");
     }
 
     private async Task VerifyManualConnectionAsync()
@@ -449,16 +454,16 @@ internal sealed class VerificationRunner(Application application, string outputD
         viewModel.ManualUsername = "deploy";
         await viewModel.ManualConnectCommand.ExecuteAsync();
         Require(service.Requests.Count == 0 && !string.IsNullOrWhiteSpace(viewModel.ConnectionError),
-            "Uma conexão manual sem servidor não foi recusada antes de chamar o adaptador.");
+            "A manual connection without a host reached the adapter.");
         viewModel.ManualHost = "ssh://manual.example.invalid";
         await viewModel.ManualConnectCommand.ExecuteAsync();
         Require(service.Requests.Count == 0 && !string.IsNullOrWhiteSpace(viewModel.ConnectionError),
-            "O formulário manual aceitou um servidor com prefixo de protocolo.");
+            "The manual form accepted a host with a protocol prefix.");
         viewModel.ManualHost = "manual.example.invalid";
         viewModel.ManualPort = "0";
         await viewModel.ManualConnectCommand.ExecuteAsync();
         Require(service.Requests.Count == 0 && !string.IsNullOrWhiteSpace(viewModel.ConnectionError),
-            "O formulário manual aceitou uma porta fora dos limites.");
+            "The manual form accepted an out-of-range port.");
 
         viewModel.ManualName = string.Empty;
         viewModel.ManualPort = "2222";
@@ -466,30 +471,30 @@ internal sealed class VerificationRunner(Application application, string outputD
         viewModel.ManualProtocol = ConnectionProtocol.Ssh;
         viewModel.ManualPrivateKeyPath = @"C:\QA\keys\manual_ed25519";
         Require(store.SaveCalls == 0 && service.Requests.Count == 0,
-            "Preencher o formulário manual iniciou conexão ou persistiu dados.");
+            "Filling in the manual form opened a connection or persisted data.");
         await viewModel.ManualConnectCommand.ExecuteAsync();
         var request = service.Requests.Single();
         Require(viewModel.HasActiveSession && viewModel.ActiveConnection == request,
-            "O formulário manual não ativou a sessão confirmada pelo adaptador de QA.");
+            "The manual form did not activate the session confirmed by the QA adapter.");
         Require(request.Name == "manual.example.invalid" && request.Host == "manual.example.invalid"
             && request.Username == "ops" && request.Port == 2222 && request.Protocol == ConnectionProtocol.Ssh
             && request.PrivateKeyPath == @"C:\QA\keys\manual_ed25519" && request.Group == "Conexão rápida",
-            "A solicitação manual perdeu dados ou não usou o servidor como nome opcional.");
+            "The manual request lost fields or did not default its optional name to the host.");
         Require(store.SaveCalls == 0 && viewModel.Connections.Count == 0 && savedEvents == 0,
-            "Conectar manualmente salvou um perfil sem pedido explícito.");
+            "Connecting manually saved a profile without an explicit request.");
 
         await viewModel.DisconnectCommand.ExecuteAsync();
         Require(!viewModel.HasActiveSession && viewModel.ManualHost == "manual.example.invalid",
-            "Desconectar não encerrou a sessão ou apagou o formulário manual.");
+            "Disconnecting did not end the session or cleared the manual form.");
         await viewModel.SaveManualConnectionCommand.ExecuteAsync();
         var saved = store.Profiles.Single();
         Require(saved.Name == request.Host && saved.Host == request.Host && saved.Port == request.Port
             && saved.Username == request.Username && saved.Protocol == request.Protocol
             && saved.PrivateKeyPath == request.PrivateKeyPath && saved.Group == "VPS",
-            "Salvar o formulário manual perdeu campos ou não criou o perfil VPS.");
+            "Saving the manual form lost fields or failed to create a VPS profile.");
         Require(!viewModel.HasActiveSession && service.Requests.Count == 1 && savedEvents == 1,
-            "Salvar manualmente iniciou outra conexão ou não notificou o shell.");
-        Require(interactions.Messages.Count == 0, "A validação/conexão manual abriu avisos modais inesperados.");
+            "Saving manually opened another connection or failed to notify the shell.");
+        Require(interactions.Messages.Count == 0, "Manual validation or connection opened unexpected modal dialogs.");
     }
 
     private async Task VerifyConnectionSessionStateAsync()
@@ -519,7 +524,7 @@ internal sealed class VerificationRunner(Application application, string outputD
 
             var connection = viewModel.ConnectCommand.ExecuteAsync(profile);
             Require(viewModel.IsConnecting && !viewModel.HasActiveSession && sessionEvents == 0,
-                "O shell ativou uma sessão antes da confirmação assíncrona do adaptador.");
+                "The shell activated a session before asynchronous adapter confirmation.");
             window.NavigateTo("files");
             await SettleLayoutAsync(window);
             RequireConnectionLanding(window);
@@ -528,49 +533,49 @@ internal sealed class VerificationRunner(Application application, string outputD
             await connection;
             await SettleLayoutAsync(window);
             Require(viewModel.HasActiveSession && viewModel.ActiveConnection == profile && !viewModel.IsConnecting && sessionEvents == 1,
-                "Uma sessão confirmada não atualizou o estado de conexão.");
+                "A confirmed session did not update connection state.");
             Require((window.FindName("HomePage") as FrameworkElement)?.IsVisible == true,
-                "Uma sessão confirmada não abriu o painel da VPS.");
+                "A confirmed session did not open the VPS dashboard.");
             window.NavigateTo("files");
             await SettleLayoutAsync(window);
             Require((window.FindName("MainWorkspaceGrid") as FrameworkElement)?.IsVisible == true,
-                "O workspace continuou bloqueado depois da confirmação da sessão.");
+                "The workspace remained blocked after session confirmation.");
             await viewModel.DisconnectCommand.ExecuteAsync();
             await SettleLayoutAsync(window);
             Require(!viewModel.HasActiveSession && viewModel.ActiveConnection is null && session.DisposeCalls == 1 && sessionEvents == 2,
-                "Desconectar não descartou a sessão confirmada exatamente uma vez.");
+                "Disconnecting did not dispose the confirmed session exactly once.");
             RequireConnectionLanding(window);
             Require(viewModel.Connections.Single() == profile && store.SaveCalls == 0,
-                "Conectar ou desconectar alterou os perfis salvos.");
+                "Connecting or disconnecting changed saved profiles.");
 
-            service.ConnectHandler = (_, _) => Task.FromException<IRemoteConnectionSession>(new IOException("Falha de conexão controlada pelo QA."));
+            service.ConnectHandler = (_, _) => Task.FromException<IRemoteConnectionSession>(new IOException("QA-controlled connection failure."));
             await viewModel.ConnectCommand.ExecuteAsync(profile);
             Require(!viewModel.HasActiveSession && !viewModel.IsConnecting && !string.IsNullOrWhiteSpace(viewModel.ConnectionError),
-                "Uma falha de conexão não voltou ao estado desconectado com erro inline.");
+                "A connection failure did not return to disconnected state with an inline error.");
             RequireConnectionLanding(window);
             var disconnectedSession = new QaRemoteConnectionSession(profile, isConnected: false);
             service.ConnectHandler = (_, _) => Task.FromResult<IRemoteConnectionSession>(disconnectedSession);
             await viewModel.ConnectCommand.ExecuteAsync(profile);
             Require(!viewModel.HasActiveSession && disconnectedSession.DisposeCalls == 1,
-                "Uma sessão não conectada foi aceita ou não foi descartada.");
+                "A disconnected session was accepted or not disposed.");
 
             var lateCompletion = new TaskCompletionSource<IRemoteConnectionSession>(TaskCreationOptions.RunContinuationsAsynchronously);
             service.ConnectHandler = (_, _) => lateCompletion.Task; // Deliberately ignores cancellation.
             var pending = viewModel.ConnectCommand.ExecuteAsync(profile);
             Require(viewModel.IsConnecting && viewModel.CancelConnectionCommand.CanExecute(null),
-                "Uma tentativa pendente não habilitou o cancelamento.");
+                "A pending attempt did not enable cancellation.");
             viewModel.CancelConnectionCommand.Execute(null);
             await pending.WaitAsync(TimeSpan.FromSeconds(3));
             Require(!viewModel.IsConnecting && !viewModel.HasActiveSession,
-                "Cancelar aguardou indefinidamente o adaptador ou manteve uma sessão ativa.");
+                "Cancellation waited indefinitely for the adapter or retained an active session.");
             var lateSession = new QaRemoteConnectionSession(profile);
             lateCompletion.SetResult(lateSession);
             await lateSession.Disposed.WaitAsync(TimeSpan.FromSeconds(3));
             Require(lateSession.DisposeCalls == 1 && !viewModel.HasActiveSession && sessionEvents == 2,
-                "Uma sessão tardia após cancelamento foi ativada ou não foi descartada.");
+                "A late session after cancellation was activated or not disposed.");
             RequireConnectionLanding(window);
             Require(store.SaveCalls == 0 && interactions.Messages.Count == 0,
-                "Falha ou cancelamento alterou perfis ou abriu avisos modais.");
+                "Failure or cancellation changed profiles or opened modal dialogs.");
         }
         finally
         {
@@ -582,12 +587,187 @@ internal sealed class VerificationRunner(Application application, string outputD
     private static void RequireConnectionLanding(MainWindow window)
     {
         Require((window.FindName("ConnectionsPage") as FrameworkElement)?.IsVisible == true,
-            "A central de conexão não está visível sem uma sessão ativa.");
+            "The connection center is not visible without an active session.");
         foreach (var name in new[] { "HomePage", "MainWorkspaceGrid", "TerminalPage", "TransfersPage", "AutomationsPage" })
         {
             Require((window.FindName(name) as FrameworkElement)?.IsVisible == false,
-                $"A página protegida {name} ficou visível sem uma sessão confirmada.");
+                $"The protected page {name} was visible without a confirmed session.");
         }
+    }
+
+    private async Task VerifyConnectionLossAndShutdownAsync()
+    {
+        var profile = CreateProfile();
+        var secondProfile = profile with { Id = Guid.NewGuid(), Host = "second.example.invalid" };
+        var service = new QaRemoteConnectionService();
+        var viewModel = CreateViewModel(new MemoryProfileStore([profile, secondProfile]), new RecordingInteractions(), service);
+        await viewModel.InitializeAsync();
+        var window = new MainWindow(viewModel, initializeOnLoad: false);
+        PrepareHiddenWindow(window);
+        window.Show();
+        try
+        {
+            var first = new QaRemoteConnectionSession(profile);
+            service.ConnectHandler = (_, _) => Task.FromResult<IRemoteConnectionSession>(first);
+            await viewModel.ConnectCommand.ExecuteAsync(profile);
+            viewModel.SelectedConnection = secondProfile;
+            Require(viewModel.ActiveConnection == profile, "Selecting another profile redirected the active session.");
+            await Task.Run(first.Drop);
+            await SettleLayoutAsync(window);
+            Require(!viewModel.HasActiveSession && first.DisposeCalls == 1, "A remote drop did not retire the active session exactly once.");
+            RequireConnectionLanding(window);
+            var second = new QaRemoteConnectionSession(secondProfile);
+            service.ConnectHandler = (_, _) => Task.FromResult<IRemoteConnectionSession>(second);
+            await viewModel.ConnectCommand.ExecuteAsync(secondProfile);
+            await Task.Run(first.SignalDisconnected);
+            await SettleLayoutAsync(window);
+            Require(viewModel.HasActiveSession && viewModel.ActiveConnection == secondProfile && second.DisposeCalls == 0,
+                "An old session callback disconnected a replacement session.");
+            await viewModel.ShutdownAsync();
+            Require(!viewModel.HasActiveSession && second.DisposeCalls == 1, "Shutdown did not dispose the active session.");
+            Require(!viewModel.ConnectCommand.CanExecute(profile), "Shutdown allowed another connection attempt.");
+        }
+        finally
+        {
+            await viewModel.ShutdownAsync();
+            window.Close();
+        }
+
+        var completion = new TaskCompletionSource<IRemoteConnectionSession>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pendingService = new QaRemoteConnectionService { ConnectHandler = (_, _) => completion.Task };
+        var pendingViewModel = CreateViewModel(new MemoryProfileStore([profile]), new RecordingInteractions(), pendingService);
+        await pendingViewModel.InitializeAsync();
+        var pendingConnection = pendingViewModel.ConnectCommand.ExecuteAsync(profile);
+        var shuttingDown = pendingViewModel.ShutdownAsync();
+        await pendingConnection.WaitAsync(TimeSpan.FromSeconds(3));
+        Require(!shuttingDown.IsCompleted, "Shutdown finished before an abandoned transport was retired.");
+        var late = new QaRemoteConnectionSession(profile);
+        completion.SetResult(late);
+        await shuttingDown.WaitAsync(TimeSpan.FromSeconds(3));
+        await late.Disposed.WaitAsync(TimeSpan.FromSeconds(3));
+        Require(!pendingViewModel.HasActiveSession && late.DisposeCalls == 1, "Shutdown accepted or leaked a late connection result.");
+
+        var transportCleanup = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var retiringService = new QaRemoteConnectionService { ShutdownHandler = () => transportCleanup.Task };
+        var retiringViewModel = CreateViewModel(new MemoryProfileStore(), new RecordingInteractions(), retiringService);
+        await retiringViewModel.InitializeAsync();
+        var retirement = retiringViewModel.ShutdownAsync();
+        Require(retiringService.ShutdownCalls == 1 && !retirement.IsCompleted,
+            "Application shutdown did not await the adapter's outstanding transport cleanup.");
+        transportCleanup.SetResult();
+        await retirement.WaitAsync(TimeSpan.FromSeconds(3));
+        await retiringViewModel.ShutdownAsync();
+        Require(retiringService.ShutdownCalls == 1, "Repeated application shutdown invoked transport cleanup more than once.");
+    }
+
+    private async Task VerifyEnglishConnectionDiagnosticsAsync()
+    {
+        var profile = CreateProfile();
+        var logs = new List<string>();
+        var service = new QaRemoteConnectionService();
+        var viewModel = new MainViewModel(new MemoryProfileStore([profile]), new RestrictedLocalFileService(outputDirectory),
+            new RecordingInteractions(), service, (kind, message) => logs.Add($"{kind}: {message}"));
+        await viewModel.InitializeAsync();
+        await viewModel.ConnectCommand.ExecuteAsync(profile);
+        Require(viewModel.StatusMessage.StartsWith("Connected to", StringComparison.Ordinal), "Successful connection status is not in English.");
+        await viewModel.DisconnectCommand.ExecuteAsync();
+        Require(viewModel.StatusMessage.StartsWith("Disconnected.", StringComparison.Ordinal), "Disconnection status is not in English.");
+        foreach (var failure in new[]
+        {
+            new RemoteConnectionException(RemoteConnectionErrorCode.AuthenticationFailed, "SSH authentication failed. Check the username and credentials."),
+            new RemoteConnectionException(RemoteConnectionErrorCode.Timeout, "The SSH connection timed out. Check the host and port.")
+        })
+        {
+            service.ConnectHandler = (_, _) => Task.FromException<IRemoteConnectionSession>(failure);
+            await viewModel.ConnectCommand.ExecuteAsync(profile);
+            Require(viewModel.ConnectionError == failure.Message, "The connection did not retain a safe English error.");
+        }
+        const string secretSentinel = "QA_SECRET_MUST_NOT_APPEAR";
+        service.ConnectHandler = (_, _) => Task.FromException<IRemoteConnectionSession>(new IOException(secretSentinel));
+        await viewModel.ConnectCommand.ExecuteAsync(profile);
+        Require(!viewModel.ConnectionError.Contains(secretSentinel, StringComparison.Ordinal), "An upstream exception exposed secret diagnostic content.");
+        var completion = new TaskCompletionSource<IRemoteConnectionSession>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.ConnectHandler = (_, _) => completion.Task;
+        var pending = viewModel.ConnectCommand.ExecuteAsync(profile);
+        viewModel.CancelConnectionCommand.Execute(null);
+        await pending;
+        Require(viewModel.StatusMessage == "Connection canceled.", "Cancellation status is not in English.");
+        completion.SetCanceled();
+        Require(logs.All(message => !message.Contains(secretSentinel, StringComparison.Ordinal)
+            && !message.Contains("Conectando", StringComparison.Ordinal) && !message.Contains("Desconectado", StringComparison.Ordinal)
+            && !message.Contains("cancelada", StringComparison.Ordinal)), "Connection diagnostics leaked a secret or Portuguese status text.");
+        Require(logs.Any(message => message.Contains("Connected to", StringComparison.Ordinal))
+            && logs.Any(message => message.Contains("authentication failed", StringComparison.Ordinal))
+            && logs.Any(message => message.Contains("timed out", StringComparison.Ordinal)), "Expected success and failure diagnostics were not recorded.");
+        await viewModel.ShutdownAsync();
+    }
+
+    private async Task VerifySshDialogsAsync()
+    {
+        var profile = CreateProfile() with { PrivateKeyPath = null };
+        foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
+        {
+            ThemeService.Current.Apply(theme);
+            var suffix = theme == AppTheme.Light ? "light" : "dark";
+            var credentials = new SshCredentialsWindow(profile, allowRemember: true);
+            PrepareHiddenWindow(credentials);
+            credentials.Show();
+            await SettleLayoutAsync(credentials);
+            Require(((CheckBox)credentials.FindName("RememberCheckBox")).IsEnabled, "Saved profiles cannot opt into credential storage.");
+            Require(credentials.FindName("SecretBox") is PasswordBox, "The secret field is not a native PasswordBox.");
+            Capture(credentials, $"ssh-credentials-{suffix}.png");
+            credentials.Close();
+            var host = new HostKeyVerificationWindow(new SshHostIdentity("qa.example.invalid", 2222, "ssh-ed25519",
+                "SHA256:QaFixtureFingerprintForVisualVerificationOnly123"));
+            PrepareHiddenWindow(host);
+            host.Show();
+            await SettleLayoutAsync(host);
+            Require(((TextBox)host.FindName("FingerprintTextBox")).IsReadOnly, "The host fingerprint can be edited in the trust dialog.");
+            Require(host.Decision == HostKeyDecision.Reject, "The host dialog trusts a server by default.");
+            Capture(host, $"ssh-host-identity-{suffix}.png");
+            host.Close();
+        }
+        ThemeService.Current.Apply(AppTheme.Light);
+        var manual = new SshCredentialsWindow(profile, allowRemember: false);
+        PrepareHiddenWindow(manual);
+        Exception? failure = null;
+        manual.Loaded += (_, _) => application.Dispatcher.BeginInvoke(() =>
+        {
+            try
+            {
+                var remember = (CheckBox)manual.FindName("RememberCheckBox");
+                Require(!remember.IsEnabled, "Manual credentials offer persistent storage.");
+                remember.IsChecked = true; // A programmatic change must not bypass the restriction.
+                ((PasswordBox)manual.FindName("SecretBox")).Password = "fixture-only";
+                var connect = FindVisualChild<Button>(manual, button => Equals(button.Content, "Connect"))
+                    ?? throw new InvalidOperationException("The credential Connect button could not be found.");
+                connect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
+            catch (Exception exception) { failure = exception; manual.Close(); }
+        });
+        Require(manual.ShowDialog() == true, "The manual credential dialog did not complete.");
+        if (failure is not null) throw failure;
+        using var result = manual.Credentials;
+        Require(result is { Remember: false, Method: RemoteAuthenticationMethod.Password }, "Manual credentials enabled storage or used the wrong authentication method.");
+        Require(((PasswordBox)manual.FindName("SecretBox")).SecurePassword.Length == 0, "A closed credential dialog retained the entered secret.");
+    }
+
+    private async Task VerifyPromptCancellationAsync()
+    {
+        // Keep native provider-created dialogs off the user's desktop during this QA check.
+        EventManager.RegisterClassHandler(typeof(Window), Window.LoadedEvent, new RoutedEventHandler((sender, _) =>
+        {
+            if (sender is SshCredentialsWindow or HostKeyVerificationWindow) PrepareHiddenWindow((Window)sender);
+        }));
+        var provider = new DesktopSshInteractionService(new WindowsCredentialStore($"OhMySsh.Verify.{Guid.NewGuid():N}"),
+            _ => false, application.Dispatcher);
+        using (var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(250)))
+            await ExpectExceptionAsync<OperationCanceledException>(async () => await provider.GetCredentialsAsync(CreateProfile(), cancellation.Token));
+        using (var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(250)))
+            await ExpectExceptionAsync<OperationCanceledException>(async () => await provider.ConfirmAsync(
+                new SshHostIdentity("qa.example.invalid", 22, "ssh-ed25519", "SHA256:fixture"), cancellation.Token));
+        Require(!application.Windows.Cast<Window>().Any(window => window is SshCredentialsWindow or HostKeyVerificationWindow),
+            "Cancellation left a native SSH prompt open.");
     }
 
     private async Task CaptureConnectedWorkspaceAsync()
@@ -609,7 +789,7 @@ internal sealed class VerificationRunner(Application application, string outputD
             PrepareHiddenWindow(window);
             window.Show();
             await viewModel.ConnectCommand.ExecuteAsync();
-            Require(viewModel.HasActiveSession, "A captura conectada não recebeu uma sessão de QA confirmada.");
+            Require(viewModel.HasActiveSession, "The connected screenshot did not receive a confirmed QA session.");
             foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
             {
                 ThemeService.Current.Apply(theme);
@@ -621,9 +801,9 @@ internal sealed class VerificationRunner(Application application, string outputD
                 await SettleLayoutAsync(window);
                 Capture(window, $"connected-workspace-{themeName}.png");
                 var files = window.FindName("LocalFilesGrid") as DataGrid
-                    ?? throw new InvalidOperationException("A grade de arquivos locais não foi encontrada.");
+                    ?? throw new InvalidOperationException("The local files grid could not be found.");
                 Require(!files.AutoGenerateColumns && files.Columns.Count == 3,
-                    $"A troca para {theme} alterou as três colunas de arquivos locais.");
+                    $"Switching to {theme} changed the three local file columns.");
             }
         }
         finally
@@ -652,7 +832,7 @@ internal sealed class VerificationRunner(Application application, string outputD
                 host.Text = "ssh://edge.example.invalid";
                 username.Text = "deploy";
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                Require(editor.Profile is null && validation.Visibility == Visibility.Visible, "O editor aceitou um servidor com protocolo/caminho.");
+                Require(editor.Profile is null && validation.Visibility == Visibility.Visible, "The editor accepted a host containing a protocol or path.");
                 host.Text = "edge.example.invalid";
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
@@ -668,8 +848,8 @@ internal sealed class VerificationRunner(Application application, string outputD
             throw validationFailure;
         }
 
-        Require(result == true && editor.Profile?.Host == "edge.example.invalid", "O editor não retornou o perfil validado.");
-        Require(editor.Profile?.Group == "VPS", "Uma VPS nova não recebeu o grupo padrão VPS.");
+        Require(result == true && editor.Profile?.Host == "edge.example.invalid", "The editor did not return the validated profile.");
+        Require(editor.Profile?.Group == "VPS", "A new VPS did not receive the default VPS group.");
         await Task.CompletedTask;
     }
 
@@ -706,19 +886,19 @@ internal sealed class VerificationRunner(Application application, string outputD
             }
 
             var connectionsPage = window.FindName("ConnectionsPage") as FrameworkElement
-                ?? throw new InvalidOperationException("A página de VPS salvas não foi encontrada.");
+                ?? throw new InvalidOperationException("The saved VPS page could not be found.");
             var profilesList = window.FindName("SavedProfilesList") as ListBox
-                ?? throw new InvalidOperationException("A lista de VPS salvas não foi encontrada.");
+                ?? throw new InvalidOperationException("The saved VPS list could not be found.");
             var workspace = window.FindName("MainWorkspaceGrid") as FrameworkElement
-                ?? throw new InvalidOperationException("O workspace de arquivos não foi encontrado.");
+                ?? throw new InvalidOperationException("The file workspace could not be found.");
             foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
             {
                 ThemeService.Current.Apply(theme);
                 await SettleLayoutAsync(window);
                 Require(connectionsPage.IsVisible && !workspace.IsVisible,
-                    "A página de VPS não ficou visível após navegar ou salvar o perfil.");
+                    "The VPS page did not become visible after navigation or saving a profile.");
                 Require(profilesList.Items.Count == (withProfiles ? 2 : 0),
-                    "A lista de VPS não corresponde aos perfis reais carregados pela fixture.");
+                    "The VPS list does not match the profiles loaded by the fixture.");
                 var themeName = theme == AppTheme.Light ? "light" : "dark";
                 Capture(window, $"connection-center-{(withProfiles ? "saved" : "empty")}-{themeName}.png");
             }
@@ -756,19 +936,19 @@ internal sealed class VerificationRunner(Application application, string outputD
         {
             PrepareHiddenWindow(window);
             var navigation = window.FindName("NavigationLayout") as Grid
-                ?? throw new InvalidOperationException("O layout de navegação não foi encontrado.");
+                ?? throw new InvalidOperationException("The navigation layout could not be found.");
             navigation.ColumnDefinitions[0].Width = new GridLength(300);
             window.Show();
             window.NavigateTo("connections");
             await SettleLayoutAsync(window);
             Capture(window, "minimum-connection-center.png");
             var hostBox = FindVisualChild<TextBox>(window, item => item.Name == "QuickHostBox")
-                ?? throw new InvalidOperationException("O campo de conexão manual não foi encontrado.");
-            RequireVisibleWithinWindow(window, hostBox, "servidor da conexão manual");
+                ?? throw new InvalidOperationException("The manual connection host field could not be found.");
+            RequireVisibleWithinWindow(window, hostBox, "manual connection host");
             foreach (var name in new[] { "QuickSaveButton", "QuickConnectButton" })
             {
                 var action = FindVisualChild<Button>(window, item => item.Name == name)
-                    ?? throw new InvalidOperationException($"A ação manual {name} não foi encontrada.");
+                    ?? throw new InvalidOperationException($"The manual action {name} could not be found.");
                 RequireVisibleWithinWindow(window, action, name);
             }
 
@@ -779,7 +959,7 @@ internal sealed class VerificationRunner(Application application, string outputD
             foreach (var name in new[] { "RemoteFilesPanel", "TransferQueuePanel" })
             {
                 var panel = window.FindName(name) as FrameworkElement
-                    ?? throw new InvalidOperationException($"O painel {name} não foi encontrado.");
+                    ?? throw new InvalidOperationException($"The {name} panel could not be found.");
                 RequireVisibleWithinWindow(window, panel, name);
             }
         }
@@ -834,30 +1014,30 @@ internal sealed class VerificationRunner(Application application, string outputD
             PrepareHiddenWindow(window);
             window.Show();
             var workspace = window.FindName("MainWorkspaceGrid") as FrameworkElement
-                ?? throw new InvalidOperationException("O workspace não foi encontrado.");
+                ?? throw new InvalidOperationException("The workspace could not be found.");
             var connectionsPage = window.FindName("ConnectionsPage") as FrameworkElement
-                ?? throw new InvalidOperationException("A página de VPS salvas não foi encontrada.");
+                ?? throw new InvalidOperationException("The saved VPS page could not be found.");
             foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
             {
                 ThemeService.Current.Apply(theme);
                 Require(ThemeService.Current.Preference == theme && ThemeService.Current.IsDark == (theme == AppTheme.Dark),
-                    "O tema aplicado não corresponde à preferência selecionada.");
+                    "The applied theme does not match the selected preference.");
                 var background = application.TryFindResource("AppBackgroundBrush") as SolidColorBrush
-                    ?? throw new InvalidOperationException("A paleta não definiu o fundo do aplicativo.");
+                    ?? throw new InvalidOperationException("The palette did not define an application background.");
                 paletteColors.Add(background.Color);
                 foreach (var page in new[] { "home", "connections", "files", "terminal", "transfers", "automations", "settings" })
                 {
                     window.NavigateTo(page);
                     await SettleLayoutAsync(window);
                     Require(ThemeService.Current.Preference == theme,
-                        $"A página {page} alterou a preferência de tema {theme}.");
-                    Require(ReferenceEquals(window.DataContext, viewModel), "Navegar ou trocar o tema substituiu o view model.");
+                        $"Page {page} changed theme preference {theme}.");
+                    Require(ReferenceEquals(window.DataContext, viewModel), "Navigation or theme switching replaced the view model.");
                     Require(viewModel.Connections.SequenceEqual(profilesBefore) && viewModel.SelectedConnection == selectedBefore,
-                        $"A página {page} alterou os perfis ou a seleção no tema {theme}.");
+                        $"Page {page} changed profiles or selection in theme {theme}.");
                     Require(viewModel.LocalPath == pathBefore && viewModel.LocalEntries.SequenceEqual(filesBefore),
-                        $"A página {page} alterou o caminho ou os arquivos no tema {theme}.");
-                    Require(workspace.IsVisible == (page == "files"), $"A navegação para {page} não alternou a visibilidade do workspace.");
-                    Require(connectionsPage.IsVisible == (page == "connections"), $"A navegação para {page} não alternou a visibilidade das VPS salvas.");
+                        $"Page {page} changed the path or files in theme {theme}.");
+                    Require(workspace.IsVisible == (page == "files"), $"Navigation to {page} did not update workspace visibility.");
+                    Require(connectionsPage.IsVisible == (page == "connections"), $"Navigation to {page} did not update saved VPS visibility.");
 
                     if (page == "settings")
                     {
@@ -866,8 +1046,8 @@ internal sealed class VerificationRunner(Application application, string outputD
                 }
             }
 
-            Require(paletteColors.Distinct().Count() == 2, "Os temas claro e escuro usaram a mesma cor de fundo.");
-            Require(store.SaveCalls == 0, "Navegar ou trocar o tema gravou dados de conexões.");
+            Require(paletteColors.Distinct().Count() == 2, "Light and dark themes used the same background color.");
+            Require(store.SaveCalls == 0, "Navigation or theme switching saved connection data.");
         }
         finally
         {
@@ -942,17 +1122,17 @@ internal sealed class VerificationRunner(Application application, string outputD
     {
         var bounds = element.TransformToAncestor(window).TransformBounds(new Rect(element.RenderSize));
         Require(element.IsVisible && element.ActualWidth > 0 && element.ActualHeight > 0,
-            $"O elemento {name} não está visível no tamanho mínimo.");
+            $"Element {name} is not visible at minimum size.");
         Require(bounds.Left >= -1 && bounds.Top >= -1
             && bounds.Right <= window.ActualWidth + 1 && bounds.Bottom <= window.ActualHeight + 1,
-            $"O elemento {name} ultrapassa os limites da janela mínima: {bounds}.");
+            $"Element {name} exceeds the minimum window bounds: {bounds}.");
     }
 
     private void Capture(Window window, string filename)
     {
         var width = (int)Math.Ceiling(window.ActualWidth);
         var height = (int)Math.Ceiling(window.ActualHeight);
-        Require(width > 0 && height > 0, "A janela não recebeu um tamanho válido.");
+        Require(width > 0 && height > 0, "The window did not receive a valid size.");
         var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(window);
         var encoder = new PngBitmapEncoder();
@@ -982,7 +1162,7 @@ internal sealed class VerificationRunner(Application application, string outputD
             return;
         }
 
-        throw new InvalidOperationException($"Era esperada uma exceção {typeof(TException).Name}.");
+        throw new InvalidOperationException($"Expected an exception of type {typeof(TException).Name}.");
     }
 }
 
@@ -1015,7 +1195,7 @@ internal sealed class MemoryProfileStore(IEnumerable<ConnectionProfile>? profile
         SaveCalls++;
         if (FailSave)
         {
-            return Task.FromException(new IOException("Falha de gravação simulada pela verificação."));
+            return Task.FromException(new IOException("A write failure simulated by verification."));
         }
 
         Profiles = profilesToSave.ToList();
@@ -1028,6 +1208,14 @@ internal sealed class QaRemoteConnectionService : IRemoteConnectionService
 {
     public List<ConnectionProfile> Requests { get; } = [];
     public Func<ConnectionProfile, CancellationToken, Task<IRemoteConnectionSession>>? ConnectHandler { get; set; }
+    public Func<Task>? ShutdownHandler { get; set; }
+    public int ShutdownCalls { get; private set; }
+
+    public Task ShutdownAsync()
+    {
+        ShutdownCalls++;
+        return ShutdownHandler?.Invoke() ?? Task.CompletedTask;
+    }
 
     public Task<IRemoteConnectionSession> ConnectAsync(ConnectionProfile profile, CancellationToken cancellationToken = default)
     {
@@ -1049,6 +1237,15 @@ internal sealed class QaRemoteConnectionSession(ConnectionProfile profile, bool 
     public bool IsConnected => Volatile.Read(ref _isConnected) == 1;
     public int DisposeCalls => Volatile.Read(ref _disposeCalls);
     public Task Disposed => _disposed.Task;
+    public event EventHandler? Disconnected;
+
+    public void Drop()
+    {
+        Interlocked.Exchange(ref _isConnected, 0);
+        SignalDisconnected();
+    }
+
+    public void SignalDisconnected() => Disconnected?.Invoke(this, EventArgs.Empty);
 
     public ValueTask DisposeAsync()
     {

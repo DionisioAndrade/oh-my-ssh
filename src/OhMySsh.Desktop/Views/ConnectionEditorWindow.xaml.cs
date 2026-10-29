@@ -28,6 +28,7 @@ public partial class ConnectionEditorWindow : Window
             NameTextBox.Text = existing.Name;
             HostTextBox.Text = existing.Host;
             PortTextBox.Text = existing.Port.ToString(CultureInfo.InvariantCulture);
+            TimeoutTextBox.Text = existing.ConnectionTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
             UsernameTextBox.Text = existing.Username;
             GroupTextBox.Text = existing.Group;
             PrivateKeyTextBox.Text = existing.PrivateKeyPath ?? string.Empty;
@@ -194,6 +195,13 @@ public partial class ConnectionEditorWindow : Window
             return;
         }
 
+        if (!int.TryParse(TimeoutTextBox.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var timeout)
+            || timeout is < 1 or > 300)
+        {
+            ShowValidation("Enter a connection timeout between 1 and 300 seconds.", TimeoutTextBox);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(username))
         {
             ShowValidation("Informe o usuário da conexão.", UsernameTextBox);
@@ -224,6 +232,7 @@ public partial class ConnectionEditorWindow : Window
             Name = name,
             Host = normalizedHost,
             Port = port,
+            ConnectionTimeoutSeconds = timeout,
             Username = username,
             Group = group.Length > 0 ? group : _existing?.Group ?? "VPS",
             Protocol = protocol,

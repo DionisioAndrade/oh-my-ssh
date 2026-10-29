@@ -1,0 +1,2 @@
+# Test fixture only; never packaged with the desktop application.
+asyncssh[bcrypt]==2.24.1
