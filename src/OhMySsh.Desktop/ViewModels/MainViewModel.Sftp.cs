@@ -208,7 +208,7 @@ public sealed partial class MainViewModel
 
     private void StartRemoteSession(IRemoteConnectionSession session)
     {
-        Terminal.AttachSession(session);
+        TerminalWorkspace.AttachSession(session);
         _remoteRequiresReconnect = false;
         if (session.Files is not { } files)
         {
@@ -676,7 +676,7 @@ public sealed partial class MainViewModel
 
     private Task StopRemoteSession()
     {
-        var terminalCleanup = Terminal.DetachAsync();
+        var terminalCleanup = TerminalWorkspace.DetachAsync();
         _uploadBatchVersion++;
         _downloadBatchVersion++;
         var context = _remoteContext;

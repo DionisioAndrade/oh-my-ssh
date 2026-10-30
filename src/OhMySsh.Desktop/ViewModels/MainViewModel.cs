@@ -68,7 +68,11 @@ public sealed partial class MainViewModel : ObservableObject
         _interactions = interactions;
         _remoteConnections = remoteConnections ?? new UnavailableRemoteConnectionService();
         _log = log;
-        Terminal = new TerminalSessionViewModel(log, _dispatcher);
+        TerminalWorkspace = new TerminalWorkspaceViewModel(log, _dispatcher);
+        TerminalWorkspace.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(TerminalWorkspaceViewModel.SelectedTerminal) or "") OnPropertyChanged(nameof(Terminal));
+        };
         _localPath = GetInitialLocalPath();
         _loadedLocalPath = _localPath;
 
@@ -108,7 +112,8 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<ConnectionProfile> Connections { get; } = [];
-    public TerminalSessionViewModel Terminal { get; }
+    public TerminalWorkspaceViewModel TerminalWorkspace { get; }
+    public TerminalSessionViewModel Terminal => TerminalWorkspace.SelectedTerminal;
     public ICollectionView FilteredConnections { get; }
     public ObservableCollection<FileEntry> LocalEntries => _localEntries;
 
@@ -747,7 +752,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
         await remoteCleanup;
 
-        await Terminal.DisposeAsync();
+        await TerminalWorkspace.DisposeAsync();
 
         // A canceled SSH.NET handshake can outlive the visible attempt. Keep
         // the dispatcher and process alive until the adapter retires its workers.

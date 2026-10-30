@@ -4,34 +4,78 @@
              xmlns:l="clr-namespace:OhMySsh.Desktop.Localization"
              xmlns:terminal="clr-namespace:OhMySsh.Desktop.Terminal"
              DataContextChanged="View_DataContextChanged">
+    <UserControl.Resources>
+        <Style x:Key="TerminalHistoryScrollBarStyle" TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template"><Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True"
+                           Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" ViewportSize="{TemplateBinding ViewportSize}"
+                           Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                        <Track.DecreaseRepeatButton><RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" CommandTarget="{Binding RelativeSource={RelativeSource AncestorType=ScrollBar}}" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Rectangle Fill="Transparent" /></ControlTemplate></RepeatButton.Template></RepeatButton></Track.DecreaseRepeatButton>
+                        <Track.Thumb>
+                            <Thumb MinHeight="20" Background="{TemplateBinding Foreground}">
+                                <Thumb.Template><ControlTemplate TargetType="Thumb"><Border x:Name="Handle" Background="{TemplateBinding Background}" CornerRadius="3" Margin="3,0" Opacity=".55" /><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Handle" Property="Opacity" Value=".85" /></Trigger><Trigger Property="IsDragging" Value="True"><Setter TargetName="Handle" Property="Opacity" Value="1" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Thumb.Template>
+                            </Thumb>
+                        </Track.Thumb>
+                        <Track.IncreaseRepeatButton><RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" CommandTarget="{Binding RelativeSource={RelativeSource AncestorType=ScrollBar}}" Focusable="False"><RepeatButton.Template><ControlTemplate TargetType="RepeatButton"><Rectangle Fill="Transparent" /></ControlTemplate></RepeatButton.Template></RepeatButton></Track.IncreaseRepeatButton>
+                    </Track>
+                </ControlTemplate>
+            </Setter.Value></Setter>
+        </Style>
+    </UserControl.Resources>
     <Grid>
-        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-        <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Padding="10,6">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+        <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Padding="10,5">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
-                    <TextBlock Text="{Binding Endpoint}" FontFamily="{StaticResource MonoFont}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding Endpoint}" />
-                    <TextBlock Text="{Binding Status}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" AutomationProperties.LiveSetting="Polite" Margin="0,2,0,0" />
-                </StackPanel>
+                <Grid VerticalAlignment="Center" Margin="0,0,10,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <Ellipse Width="6" Height="6" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="{Binding Status}">
+                        <Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Fill" Value="{DynamicResource TextSecondaryBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsOpen}" Value="True"><Setter Property="Fill" Value="{DynamicResource SuccessBrush}" /></DataTrigger><DataTrigger Binding="{Binding IsOpening}" Value="True"><Setter Property="Fill" Value="{DynamicResource AccentBrush}" /></DataTrigger></Style.Triggers></Style></Ellipse.Style>
+                    </Ellipse>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding Endpoint}" FontFamily="{StaticResource MonoFont}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding Endpoint}" />
+                        <TextBlock Text="{Binding Status}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" AutomationProperties.LiveSetting="Polite" />
+                    </StackPanel>
+                </Grid>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="OpenTerminalButton" Content="{l:Loc Terminal.Open}" Command="{Binding OpenCommand}" Click="OpenTerminal_Click"
-                            Style="{DynamicResource PrimaryButtonStyle}" FontSize="12" MinHeight="30" Padding="10,4" />
-                    <Button x:Name="CloseTerminalButton" Content="{l:Loc Terminal.Close}" Command="{Binding CloseCommand}"
-                            Style="{DynamicResource SecondaryButtonStyle}" FontSize="12" MinHeight="30" Padding="10,4" Margin="6,0,0,0" />
+                    <Button x:Name="OpenTerminalButton" Content="{l:Loc Terminal.Open}" Command="{Binding OpenCommand}" Click="OpenTerminal_Click" FontSize="11" MinHeight="28" Padding="9,3" Margin="0,0,8,0">
+                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}"><Style.Triggers><DataTrigger Binding="{Binding IsOpen}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger><DataTrigger Binding="{Binding IsOpening}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Button.Style>
+                    </Button>
+                    <Button x:Name="CloseTerminalButton" Content="{l:Loc Terminal.Close}" Command="{Binding CloseCommand}" FontSize="11" MinHeight="28" Padding="9,3" Margin="0,0,8,0">
+                        <Button.Style><Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding IsOpen}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger><DataTrigger Binding="{Binding IsOpening}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Button.Style>
+                    </Button>
+                    <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="1" CornerRadius="5" Margin="0,0,6,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="ZoomOutButton" Click="ZoomOut_Click" Style="{StaticResource IconButtonStyle}" Width="27" Height="27" ToolTip="{l:Loc TerminalControls.ZoomOut}" AutomationProperties.Name="{l:Loc TerminalControls.ZoomOut}"><TextBlock Text="&#xE738;" Style="{StaticResource GlyphStyle}" FontSize="11" /></Button>
+                            <Button x:Name="ResetZoomButton" Click="ResetZoom_Click" Padding="4,0" MinWidth="32" Height="27" Background="Transparent" BorderThickness="0" ToolTip="{l:Loc TerminalControls.ResetZoom}" AutomationProperties.Name="{l:Loc TerminalControls.ResetZoom}"><TextBlock x:Name="ZoomLevelText" FontSize="11" /></Button>
+                            <Button x:Name="ZoomInButton" Click="ZoomIn_Click" Style="{StaticResource IconButtonStyle}" Width="27" Height="27" ToolTip="{l:Loc TerminalControls.ZoomIn}" AutomationProperties.Name="{l:Loc TerminalControls.ZoomIn}"><TextBlock Text="&#xE710;" Style="{StaticResource GlyphStyle}" FontSize="11" /></Button>
+                        </StackPanel>
+                    </Border>
+                    <Button x:Name="CustomizeTerminalButton" Click="CustomizeTerminal_Click" Style="{StaticResource IconButtonStyle}" Width="28" Height="28" ToolTip="{l:Loc TerminalControls.Customize}" AutomationProperties.Name="{l:Loc TerminalControls.Customize}"><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" FontSize="14" /></Button>
                 </StackPanel>
             </Grid>
         </Border>
-        <Border Grid.Row="1" Background="{DynamicResource TerminalBrush}" ClipToBounds="True" Padding="10,6">
+        <Border x:Name="OperationNotice" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource SubtleBrush}" Padding="10,5">
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><TextBlock x:Name="OperationNoticeText" Foreground="{DynamicResource DangerBrush}" FontSize="11" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" /><Button Grid.Column="1" Click="DismissNotice_Click" Style="{StaticResource IconButtonStyle}" Width="24" Height="24" ToolTip="{l:Loc TerminalControls.Dismiss}" AutomationProperties.Name="{l:Loc TerminalControls.Dismiss}"><TextBlock Text="&#xE711;" Style="{StaticResource GlyphStyle}" FontSize="10" /></Button></Grid>
+        </Border>
+        <Border x:Name="ViewportBorder" Grid.Row="2" Background="{DynamicResource TerminalBrush}" ClipToBounds="True" Padding="10,6">
             <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="13" /></Grid.ColumnDefinitions>
                 <terminal:TerminalSurface x:Name="TerminalDisplay" Emulator="{Binding Emulator}" IsInputEnabled="{Binding IsOpen}"
-                                          FontFamily="{StaticResource MonoFont}" FontSize="13" DimensionsChanged="Terminal_DimensionsChanged"
+                                          FontSize="13" DimensionsChanged="Terminal_DimensionsChanged" ZoomRequested="Terminal_ZoomRequested" ViewportChanged="Terminal_ViewportChanged"
                                           OperationFailed="Terminal_OperationFailed" AutomationProperties.Name="{l:Loc Terminal.Surface}" />
-                <TextBlock Text="{l:Loc Terminal.OpenHint}" Foreground="{DynamicResource TerminalTextBrush}" FontSize="12" TextWrapping="Wrap"
+                <ScrollBar x:Name="TerminalScrollBar" Grid.Column="1" Orientation="Vertical" Style="{StaticResource TerminalHistoryScrollBarStyle}" Visibility="Hidden" Minimum="0" SmallChange="1" ValueChanged="TerminalScrollBar_ValueChanged" AutomationProperties.Name="{l:Loc TerminalControls.History}" ToolTip="{l:Loc TerminalControls.History}" />
+                <TextBlock x:Name="OpenHintText" Text="{l:Loc Terminal.OpenHint}" Foreground="{DynamicResource TerminalTextBrush}" FontSize="12" TextWrapping="Wrap"
                            TextAlignment="Center" MaxWidth="480" Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
                            Visibility="{Binding HasEmulator, Converter={StaticResource InverseBoolToVisibility}}" />
+                <Button x:Name="BackToEndButton" Click="BackToEnd_Click" Visibility="Collapsed" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="8" Padding="11,5" MinHeight="29" Style="{StaticResource SecondaryButtonStyle}" ToolTip="{l:Loc TerminalControls.BackToEnd}" AutomationProperties.Name="{l:Loc TerminalControls.BackToEnd}">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE70D;" Style="{StaticResource GlyphStyle}" FontSize="11" Margin="0,0,7,0" /><TextBlock Text="{l:Loc TerminalControls.BackToEnd}" FontSize="11" /><Border x:Name="NewOutputBadge" Visibility="Collapsed" Background="{DynamicResource AccentLightBrush}" CornerRadius="3" Padding="5,1" Margin="8,0,0,0"><TextBlock Text="{l:Loc TerminalControls.NewOutput}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="10" /></Border></StackPanel>
+                </Button>
             </Grid>
         </Border>
-        <Grid Grid.Row="2" Margin="10,4">
+        <Grid Grid.Row="3" Margin="10,4">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <TextBlock Text="{l:Loc Terminal.Instructions}" ToolTip="{l:Loc Terminal.Instructions}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
             <TextBlock Grid.Column="1" Text="{Binding Dimensions}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" Margin="10,0,0,0" />

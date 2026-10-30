@@ -408,7 +408,7 @@
                                 <TabItem.Header>
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="{l:Loc Shell.Terminal}" FontSize="12" /></StackPanel>
                                 </TabItem.Header>
-                                <views:TerminalView DataContext="{Binding Terminal}" />
+                                <views:TerminalWorkspaceView DataContext="{Binding TerminalWorkspace}" />
                             </TabItem>
                             <TabItem Header="{l:Loc Shell.Activity}">
                                 <Grid Background="{DynamicResource SurfaceBrush}" Margin="18">
@@ -433,7 +433,7 @@
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <StackPanel Margin="0,0,0,24"><TextBlock Text="{l:Loc Shell.Terminal}" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.TerminalDescription}" Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
                         <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,24,0,0" ClipToBounds="True">
-                            <views:TerminalView DataContext="{Binding Terminal}" />
+                            <views:TerminalWorkspaceView DataContext="{Binding TerminalWorkspace}" />
                         </Border>
                     </Grid>
                     <Grid x:Name="TransfersPage" Visibility="Collapsed" Margin="34,30">
@@ -479,6 +479,9 @@
                                         <ComboBoxItem Content="{l:Loc Shell.LanguageSpanish}" Tag="es-ES" />
                                     </ComboBox>
                                 </Grid>
+                            </Border>
+                            <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="22" Margin="0,12,0,0">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions><StackPanel VerticalAlignment="Center" Margin="0,0,22,0"><TextBlock Text="{l:Loc TerminalControls.SettingsTitle}" FontSize="15" FontWeight="SemiBold" /><TextBlock Text="{l:Loc TerminalControls.SettingsDescription}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,6,0,0" /></StackPanel><Button x:Name="TerminalPreferencesButton" Grid.Column="1" Content="{l:Loc TerminalControls.Customize}" Click="TerminalPreferences_Click" VerticalAlignment="Center" /></Grid>
                             </Border>
                             <TextBlock Text="{l:Loc Shell.Application}" FontSize="18" FontWeight="SemiBold" Margin="0,30,0,14"/>
                             <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="22">

@@ -20,6 +20,10 @@ public sealed class TerminalEmulator : IDisposable
     private XTerm.Buffer.TerminalBuffer _alternateBuffer;
     private readonly Queue<byte[]> _pendingInput = [];
     private int _publishingInput;
+    private long _outputVersion;
+    private bool _hasNewOutputWhileScrolled;
+    private bool _trackOutputTrims;
+    private int _outputTrimmedLines;
     private bool _disposed;
 
     public TerminalEmulator(int columns = 80, int rows = 24, int scrollback = 2000)
@@ -50,6 +54,7 @@ public sealed class TerminalEmulator : IDisposable
             }
         });
         _normalBuffer = _terminal.Buffer;
+        _normalBuffer.Trimmed += OnNormalBufferTrimmed;
         // Capture both stable buffers before the facade can be observed or emit input.
         _terminal.SwitchToAltBuffer();
         _alternateBuffer = _terminal.Buffer;
@@ -66,7 +71,18 @@ public sealed class TerminalEmulator : IDisposable
         lock (_gate)
         {
             if (_disposed) return;
-            _terminal.Write(data);
+            var readingHistory = !_terminal.IsAlternateBufferActive && !_terminal.Buffer.IsAtBottom;
+            var historyPosition = _normalBuffer.YDisp;
+            _outputTrimmedLines = 0;
+            _trackOutputTrims = readingHistory;
+            try { _terminal.Write(data); }
+            finally { _trackOutputTrims = false; }
+            // The pinned engine leaves YDisp unchanged when a full history ring rotates,
+            // which would move the text under a reader. Anchor to the retained logical rows.
+            if (readingHistory) _normalBuffer.ScrollToLine(Math.Max(0, historyPosition - _outputTrimmedLines));
+            _outputVersion++;
+            if (readingHistory) _hasNewOutputWhileScrolled = true;
+            if (_terminal.Buffer.IsAtBottom && !_terminal.IsAlternateBufferActive) _hasNewOutputWhileScrolled = false;
         }
         Publish();
         Changed?.Invoke(this, EventArgs.Empty);
@@ -76,6 +92,33 @@ public sealed class TerminalEmulator : IDisposable
     {
         ValidateDimensions(columns, rows);
         Mutate(terminal => ResizeCore(terminal, columns, rows));
+    }
+
+    /// <summary>Changes presentation and the history limit without replaying input or resetting screens.</summary>
+    public void ApplyPreferences(TerminalPreferences preferences)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        var settings = preferences.Validate();
+        Mutate(terminal =>
+        {
+            var palette = settings.AnsiColors;
+            var theme = new ThemeOptions
+            {
+                Foreground = settings.Foreground, Background = settings.Background, Cursor = settings.CursorColor,
+                Selection = settings.SelectionColor, Black = palette[0], Red = palette[1], Green = palette[2],
+                Yellow = palette[3], Blue = palette[4], Magenta = palette[5], Cyan = palette[6], White = palette[7],
+                BrightBlack = palette[8], BrightRed = palette[9], BrightGreen = palette[10], BrightYellow = palette[11],
+                BrightBlue = palette[12], BrightMagenta = palette[13], BrightCyan = palette[14], BrightWhite = palette[15]
+            };
+            terminal.Options.Theme = theme;
+            terminal.Colors.ApplyTheme(theme);
+            terminal.Options.CursorStyle = Enum.Parse<XTerm.Common.CursorStyle>(settings.CursorStyle.ToString());
+            terminal.Options.CursorBlink = settings.CursorBlink;
+            terminal.Options.DrawBoldTextInBrightColors = settings.BoldBrightColors;
+            terminal.Options.Scrollback = settings.ScrollbackLines;
+            _normalBuffer.SetScrollback(settings.ScrollbackLines);
+            if (_normalBuffer.IsAtBottom) _hasNewOutputWhileScrolled = false;
+        });
     }
 
     public void SendKey(TerminalKey key, TerminalModifiers modifiers = TerminalModifiers.None)
@@ -139,8 +182,23 @@ public sealed class TerminalEmulator : IDisposable
         });
     }
 
-    public void Scroll(int lines) => Mutate(terminal => terminal.ScrollLines(lines));
-    public void ScrollToBottom() => Mutate(terminal => terminal.ScrollToBottom());
+    public void Scroll(int lines) => Mutate(terminal =>
+    {
+        terminal.ScrollLines(lines);
+        if (terminal.Buffer.IsAtBottom) _hasNewOutputWhileScrolled = false;
+    });
+    /// <summary>Zero follows live output; positive values select rows above the live viewport.</summary>
+    public void ScrollToOffset(int offset) => Mutate(terminal =>
+    {
+        if (terminal.IsAlternateBufferActive) return;
+        terminal.Buffer.ScrollToLine(Math.Clamp(terminal.Buffer.YBase - Math.Max(0, offset), 0, terminal.Buffer.YBase));
+        if (terminal.Buffer.IsAtBottom) _hasNewOutputWhileScrolled = false;
+    });
+    public void ScrollToBottom() => Mutate(terminal =>
+    {
+        terminal.ScrollToBottom();
+        _hasNewOutputWhileScrolled = false;
+    });
     public void SelectAll() => Mutate(terminal => terminal.Selection.SelectAll());
     public void ClearSelection() => Mutate(terminal => terminal.Selection.ClearSelection());
     public void BeginSelection(int column, int row, int clickCount = 1) => Mutate(terminal =>
@@ -221,7 +279,8 @@ public sealed class TerminalEmulator : IDisposable
                 terminal.Options.CursorBlink, shape, Argb(colors.Cursor), defaultBackground,
                 terminal.IsAlternateBufferActive, buffer.YBase, buffer.YBase - buffer.YDisp,
                 terminal.ApplicationCursorKeys, terminal.BracketedPasteMode,
-                terminal.MouseTrackingMode != MouseTrackingMode.None, hasSelection);
+                terminal.MouseTrackingMode != MouseTrackingMode.None, hasSelection, _outputVersion,
+                !terminal.IsAlternateBufferActive && _hasNewOutputWhileScrolled);
         }
     }
 
@@ -232,6 +291,7 @@ public sealed class TerminalEmulator : IDisposable
             if (_disposed) return;
             _disposed = true;
             _terminal.DataReceived -= OnDataReceived;
+            _normalBuffer.Trimmed -= OnNormalBufferTrimmed;
             InputGenerated = null;
             Changed = null;
             try
@@ -263,9 +323,10 @@ public sealed class TerminalEmulator : IDisposable
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    private static void PrepareInput(XTerm.Terminal terminal)
+    private void PrepareInput(XTerm.Terminal terminal)
     {
         terminal.ScrollToBottom();
+        _hasNewOutputWhileScrolled = false;
         terminal.Selection.ClearSelection();
     }
 
@@ -352,6 +413,10 @@ public sealed class TerminalEmulator : IDisposable
     }
 
     private void OnDataReceived(object? sender, XTerm.Events.TerminalEvents.DataEventArgs e) => QueueInput(e.Data);
+    private void OnNormalBufferTrimmed(int count)
+    {
+        if (_trackOutputTrims) _outputTrimmedLines = checked(_outputTrimmedLines + count);
+    }
     private void QueueInput(string text)
     {
         if (text.Length != 0) _pendingInput.Enqueue(Encoding.UTF8.GetBytes(text));

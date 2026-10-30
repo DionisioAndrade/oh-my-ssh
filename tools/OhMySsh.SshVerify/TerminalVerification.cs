@@ -31,27 +31,66 @@ internal sealed partial class SshVerificationSuite
             await capture.UntilAsync("SIZE 123 42\r\n");
             Require(session.IsConnected, "Resizing or typing ended the authenticated SSH session.");
         });
-        await CheckAsync("Terminal: one active shell, EOF, explicit reopen, and shared SFTP lifetime", async () =>
+        await CheckAsync("Terminal: independent sibling channels, EOF, explicit reopen, and shared SFTP lifetime", async () =>
         {
             await using var session = await Service("terminal-lifetime").ConnectAsync(Profile);
             var shells = RequireShells(session);
             await using var first = await shells.OpenAsync(new());
-            await ExpectTerminalCodeAsync(() => shells.OpenAsync(new()), RemoteTerminalErrorCode.AlreadyOpen);
+            await using var sibling = await shells.OpenAsync(new("xterm-256color", 88, 28));
+            await using var siblingCapture = new TerminalCapture(sibling);
+            await siblingCapture.UntilAsync("FIXTURE_READY xterm-256color 88 28");
             await using (var capture = new TerminalCapture(first))
             {
                 await capture.UntilAsync("FIXTURE_READY");
+                await SendAsync(first, "first-only\r");
+                await capture.UntilAsync("INPUT 66697273742d6f6e6c79\r\n");
+                await SendAsync(sibling, "sibling-only\r");
+                await siblingCapture.UntilAsync("INPUT 7369626c696e672d6f6e6c79\r\n");
+                Require(!capture.Text.Contains("7369626c696e672d6f6e6c79", StringComparison.Ordinal)
+                    && !siblingCapture.Text.Contains("66697273742d6f6e6c79", StringComparison.Ordinal),
+                    "Input or output crossed a sibling shell channel boundary.");
+                await first.ResizeAsync(101, 37);
+                await SendAsync(first, "fixture-size\r");
+                await capture.UntilAsync("SIZE 101 37\r\n");
+                await SendAsync(sibling, "fixture-size\r");
+                await siblingCapture.UntilAsync("SIZE 88 28\r\n");
                 await SendAsync(first, "fixture-close\r");
                 await first.Completion.WaitAsync(TimeSpan.FromSeconds(5));
                 await capture.Finished.WaitAsync(TimeSpan.FromSeconds(5));
                 Require(capture.Text.Contains("SHELL_EXIT", StringComparison.Ordinal), "Normal shell exit lost its final output.");
             }
             Require(!first.IsOpen && session.IsConnected, "Shell EOF closed its parent session or reopened automatically.");
+            Require(sibling.IsOpen, "Shell EOF closed an independent sibling channel.");
+            await SendAsync(sibling, "after-sibling-exit\r");
+            await siblingCapture.UntilAsync("INPUT 61667465722d7369626c696e672d65786974\r\n");
             await using (var second = await shells.OpenAsync(new("xterm-256color", 88, 28)))
             {
                 await using var capture = new TerminalCapture(second);
                 await capture.UntilAsync("FIXTURE_READY xterm-256color 88 28");
             }
             Require(await RequireFiles(session).GetHomeDirectoryAsync() == "/", "Closing a shell disabled SFTP.");
+        });
+        await CheckAsync("Terminal: channel limit, released slots, and parent disposal retire every sibling", async () =>
+        {
+            await using var session = await Service("terminal-channel-limit").ConnectAsync(Profile);
+            var service = RequireShells(session);
+            var channels = new List<IRemoteShell>();
+            try
+            {
+                for (var index = 0; index < 8; index++) channels.Add(await service.OpenAsync(new()));
+                await ExpectTerminalCodeAsync(() => service.OpenAsync(new()), RemoteTerminalErrorCode.AlreadyOpen);
+                await channels[0].DisposeAsync();
+                channels.Add(await service.OpenAsync(new()));
+                Require(channels.Skip(1).All(channel => channel.IsOpen), "Reusing a disposed channel slot closed another terminal.");
+                await session.DisposeAsync();
+                Require(channels.All(channel => !channel.IsOpen), "Parent session disposal retained an interactive channel.");
+                foreach (var channel in channels)
+                {
+                    try { await channel.Completion.WaitAsync(TimeSpan.FromSeconds(5)); }
+                    catch (RemoteTerminalException) { }
+                }
+            }
+            finally { foreach (var channel in channels) await channel.DisposeAsync(); }
         });
         await CheckAsync("Terminal: bounded high-volume output drains without loss", async () =>
         {

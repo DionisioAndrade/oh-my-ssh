@@ -18,7 +18,9 @@ public sealed record TerminalSnapshot(
     bool ApplicationCursorKeys,
     bool BracketedPaste,
     bool MouseTracking,
-    bool HasSelection);
+    bool HasSelection,
+    long OutputVersion = 0,
+    bool HasNewOutputWhileScrolled = false);
 
 public sealed record TerminalLine(IReadOnlyList<TerminalCell> Cells, bool IsWrapped);
 
@@ -64,6 +66,21 @@ public sealed class TerminalDimensionsEventArgs(int columns, int rows) : EventAr
 {
     public int Columns { get; } = columns;
     public int Rows { get; } = rows;
+}
+
+public sealed class TerminalZoomEventArgs(int steps) : EventArgs
+{
+    public int Steps { get; } = steps;
+}
+
+public sealed class TerminalViewportEventArgs(int scrollbackCount, int viewportOffset, int rows,
+    bool isAlternateBuffer, bool hasNewOutput) : EventArgs
+{
+    public int ScrollbackCount { get; } = scrollbackCount;
+    public int ViewportOffset { get; } = viewportOffset;
+    public int Rows { get; } = rows;
+    public bool IsAlternateBuffer { get; } = isAlternateBuffer;
+    public bool HasNewOutput { get; } = hasNewOutput;
 }
 
 public sealed class TerminalSurfaceErrorEventArgs(string resourceKey) : EventArgs

@@ -60,7 +60,8 @@ internal sealed partial class VerificationRunner
                         Require(emulator.GetVisibleText().Contains("Shared SSH shell", StringComparison.Ordinal),
                             "Switching native terminal viewports lost the active screen.");
                         RequireVisibleWithinWindow(window, surface, "Shared terminal viewport");
-                        RequireVisibleWithinWindow(window, (Button)view.FindName("OpenTerminalButton"), "Open terminal action");
+                        Require(!((Button)view.FindName("OpenTerminalButton")).IsVisible,
+                            "An active terminal displayed an unavailable open action.");
                         RequireVisibleWithinWindow(window, (Button)view.FindName("CloseTerminalButton"), "Close terminal action");
                         var snapshot = emulator.GetSnapshot();
                         var lastSize = shell.Resizes.IsEmpty

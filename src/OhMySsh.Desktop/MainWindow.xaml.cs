@@ -70,6 +70,9 @@ public partial class MainWindow : Window
         Activate();
     }
 
+    private void TerminalPreferences_Click(object sender, RoutedEventArgs e)
+        => new Views.TerminalPreferencesWindow { Owner = this }.ShowDialog();
+
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (_shutdownCompleted)

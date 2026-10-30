@@ -9,6 +9,7 @@ using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.TextFormatting;
 using System.Windows.Threading;
 using OhMySsh.Core.Localization;
 using MediaColor = System.Windows.Media.Color;
@@ -29,7 +30,10 @@ public sealed class TerminalSurface : FrameworkElement
     private readonly DispatcherTimer _renderTimer;
     private readonly Dictionary<uint, SolidColorBrush> _brushes = [];
     private readonly Dictionary<GlyphKey, FormattedText> _glyphs = [];
+    private readonly Dictionary<ShapedKey, ShapedText> _shaped = [];
+    private TextFormatter? _textFormatter;
     private TerminalSnapshot? _snapshot;
+    private (int History, int Offset, int Rows, bool Alternate, bool NewOutput)? _lastViewport;
     private int _dirty = 1;
     private bool _blinkVisible = true;
     private long _lastBlink;
@@ -55,6 +59,28 @@ public sealed class TerminalSurface : FrameworkElement
 
     public static readonly DependencyProperty FontSizeProperty = TextElement.FontSizeProperty.AddOwner(
         typeof(TerminalSurface), new FrameworkPropertyMetadata(13d, OnFontChanged));
+
+    public static readonly DependencyProperty FontWeightProperty = TextElement.FontWeightProperty.AddOwner(
+        typeof(TerminalSurface), new FrameworkPropertyMetadata(FontWeights.Normal, OnFontChanged));
+
+    public static readonly DependencyProperty LigaturesEnabledProperty = DependencyProperty.Register(
+        nameof(LigaturesEnabled), typeof(bool), typeof(TerminalSurface), new FrameworkPropertyMetadata(true, OnFontChanged));
+
+    public static readonly DependencyProperty LineHeightProperty = DependencyProperty.Register(
+        nameof(LineHeight), typeof(double), typeof(TerminalSurface), new FrameworkPropertyMetadata(1.38d, OnFontChanged),
+        value => value is double height && double.IsFinite(height) && height is >= 1 and <= 2);
+
+    public static readonly DependencyProperty SelectionColorProperty = DependencyProperty.Register(
+        nameof(SelectionColor), typeof(uint), typeof(TerminalSurface),
+        new FrameworkPropertyMetadata(0x885F69A2u, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty BackgroundColorProperty = DependencyProperty.Register(
+        nameof(BackgroundColor), typeof(uint), typeof(TerminalSurface),
+        new FrameworkPropertyMetadata(0xFF202128u, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty PreviewCursorProperty = DependencyProperty.Register(
+        nameof(PreviewCursor), typeof(bool), typeof(TerminalSurface),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public TerminalSurface() : this(Clipboard.SetText, ReadClipboardText)
     {
@@ -104,8 +130,18 @@ public sealed class TerminalSurface : FrameworkElement
         set => SetValue(FontSizeProperty, value);
     }
 
+    public bool LigaturesEnabled { get => (bool)GetValue(LigaturesEnabledProperty); set => SetValue(LigaturesEnabledProperty, value); }
+    public FontWeight FontWeight { get => (FontWeight)GetValue(FontWeightProperty); set => SetValue(FontWeightProperty, value); }
+    public double LineHeight { get => (double)GetValue(LineHeightProperty); set => SetValue(LineHeightProperty, value); }
+    public uint SelectionColor { get => (uint)GetValue(SelectionColorProperty); set => SetValue(SelectionColorProperty, value); }
+    public uint BackgroundColor { get => (uint)GetValue(BackgroundColorProperty); set => SetValue(BackgroundColorProperty, value); }
+    /// <summary>Shows the configured cursor in a read-only appearance preview without taking focus.</summary>
+    public bool PreviewCursor { get => (bool)GetValue(PreviewCursorProperty); set => SetValue(PreviewCursorProperty, value); }
+
     public event EventHandler<TerminalDimensionsEventArgs>? DimensionsChanged;
     public event EventHandler<TerminalSurfaceErrorEventArgs>? OperationFailed;
+    public event EventHandler<TerminalZoomEventArgs>? ZoomRequested;
+    public event EventHandler<TerminalViewportEventArgs>? ViewportChanged;
 
     protected override AutomationPeer OnCreateAutomationPeer() => new TerminalSurfaceAutomationPeer(this);
 
@@ -127,7 +163,7 @@ public sealed class TerminalSurface : FrameworkElement
     {
         base.OnRender(context);
         var snapshot = _snapshot;
-        context.DrawRectangle(Brush(snapshot?.Background ?? 0xFF202128), null, new Rect(RenderSize));
+        context.DrawRectangle(Brush(snapshot?.Background ?? BackgroundColor), null, new Rect(RenderSize));
         if (snapshot is null) return;
         context.PushClip(new RectangleGeometry(new Rect(RenderSize)));
         var rows = Math.Min(snapshot.Rows, (int)Math.Ceiling(ActualHeight / _cellHeight));
@@ -149,18 +185,38 @@ public sealed class TerminalSurface : FrameworkElement
             {
                 var cell = cells[column];
                 if (cell.Selected)
-                    context.DrawRectangle(Brush(0x885F69A2), null,
+                    context.DrawRectangle(Brush(SelectionColor), null,
                         new Rect(column * _cellWidth, y, _cellWidth, _cellHeight));
                 if (cell.Width == 0 || cell.Invisible) continue;
+                if (LigaturesEnabled && CanShape(cell))
+                {
+                    var end = column + 1;
+                    while (end < cells.Count && CanShape(cells[end]) && SameRun(cell, cells[end])) end++;
+                    if (end - column > 1)
+                    {
+                        // Shape adjacent cells together: Fira Code's contextual alternates cannot
+                        // appear when every operator character is drawn in an isolated text run.
+                        var text = string.Concat(cells.Skip(column).Take(end - column).Select(item => item.Text));
+                        var runBounds = new Rect(column * _cellWidth, y, (end - column) * _cellWidth, _cellHeight);
+                        if (cell.Selected)
+                            context.DrawRectangle(Brush(SelectionColor), null,
+                                new Rect((column + 1) * _cellWidth, y, (end - column - 1) * _cellWidth, _cellHeight));
+                        context.PushClip(new RectangleGeometry(runBounds));
+                        context.PushTransform(new TranslateTransform(runBounds.X, runBounds.Y));
+                        context.DrawDrawing(Shape(text, cell, runBounds.Width).Drawing);
+                        context.Pop();
+                        context.Pop();
+                        DrawDecorations(context, cell, runBounds);
+                        column = end - 1;
+                        continue;
+                    }
+                }
                 var width = Math.Min(cell.Width, cells.Count - column) * _cellWidth;
                 var bounds = new Rect(column * _cellWidth, y, width, _cellHeight);
                 context.PushClip(new RectangleGeometry(bounds));
                 if (!string.IsNullOrEmpty(cell.Text) && cell.Text != " ")
                     context.DrawText(Glyph(cell), new Point(bounds.X, y));
-                var pen = new Pen(Brush(cell.Foreground), Math.Max(1 / _pixelsPerDip, FontSize / 14));
-                if (cell.Underline) context.DrawLine(pen, new Point(bounds.Left, y + _cellHeight - 2), new Point(bounds.Right, y + _cellHeight - 2));
-                if (cell.StrikeThrough) context.DrawLine(pen, new Point(bounds.Left, y + _cellHeight * .53), new Point(bounds.Right, y + _cellHeight * .53));
-                if (cell.Overline) context.DrawLine(pen, new Point(bounds.Left, y + 1), new Point(bounds.Right, y + 1));
+                DrawDecorations(context, cell, bounds);
                 context.Pop();
             }
         }
@@ -324,17 +380,28 @@ public sealed class TerminalSurface : FrameworkElement
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
-        if (Emulator is null) return;
-        var steps = Math.Max(1, Math.Abs(e.Delta) / 120);
-        if (ForwardMouseToRemote())
+        if (HandleWheel(e.Delta, Keyboard.Modifiers, e.GetPosition(this))) e.Handled = true;
+    }
+
+    private bool HandleWheel(int delta, ModifierKeys modifiers, Point position)
+    {
+        if (delta == 0) return false;
+        var steps = Math.Max(1, Math.Abs(delta) / 120);
+        if (modifiers.HasFlag(ModifierKeys.Control))
         {
-            var cell = CellAt(e.GetPosition(this));
-            for (var step = 0; step < steps; step++)
-                Emulator.SendPointer(e.Delta > 0 ? TerminalPointerButton.WheelUp : TerminalPointerButton.WheelDown,
-                    cell.Column, cell.Row, e.Delta > 0 ? TerminalPointerAction.WheelUp : TerminalPointerAction.WheelDown, Modifiers());
+            ZoomRequested?.Invoke(this, new TerminalZoomEventArgs((delta > 0 ? 1 : -1) * steps));
+            return true;
         }
-        else Emulator.Scroll((e.Delta > 0 ? -1 : 1) * steps * 3);
-        e.Handled = true;
+        if (Emulator is null) return false;
+        if (ForwardMouseToRemote(modifiers))
+        {
+            var cell = CellAt(position);
+            for (var step = 0; step < steps; step++)
+                Emulator.SendPointer(delta > 0 ? TerminalPointerButton.WheelUp : TerminalPointerButton.WheelDown,
+                    cell.Column, cell.Row, delta > 0 ? TerminalPointerAction.WheelUp : TerminalPointerAction.WheelDown, Modifiers(modifiers));
+        }
+        else Emulator.Scroll((delta > 0 ? -1 : 1) * steps * 3);
+        return true;
     }
 
     protected override void OnContextMenuOpening(ContextMenuEventArgs e)
@@ -356,6 +423,8 @@ public sealed class TerminalSurface : FrameworkElement
         _selecting = false;
         _trackedButton = TerminalPointerButton.None;
         if (IsMouseCaptured) ReleaseMouseCapture();
+        _textFormatter?.Dispose();
+        _textFormatter = null;
     }
 
     private void OnVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -382,13 +451,14 @@ public sealed class TerminalSurface : FrameworkElement
         {
             try { _snapshot = Emulator?.GetSnapshot(); }
             catch (ObjectDisposedException) { _snapshot = null; }
+            PublishViewport();
         }
         var now = Environment.TickCount64;
         if (now - _lastBlink >= 530)
         {
             _lastBlink = now;
             _blinkVisible = !_blinkVisible;
-            if (IsKeyboardFocused && _snapshot?.CursorBlink == true) dirty = true;
+            if ((IsKeyboardFocused || PreviewCursor) && _snapshot?.CursorBlink == true) dirty = true;
         }
         if (dirty) InvalidateVisual();
     }
@@ -400,15 +470,18 @@ public sealed class TerminalSurface : FrameworkElement
         if (e.NewValue is TerminalEmulator newEmulator) newEmulator.Changed += surface.OnEmulatorChanged;
         surface._snapshot = null;
         surface._glyphs.Clear();
+        surface._shaped.Clear();
         surface._brushes.Clear();
         surface._selecting = false;
         surface._trackedButton = TerminalPointerButton.None;
         if (surface.IsMouseCaptured) surface.ReleaseMouseCapture();
         surface._reportedColumns = surface._reportedRows = 0;
+        surface._lastViewport = null;
         Interlocked.Exchange(ref surface._dirty, 1);
         surface.UpdateTimer();
         surface.InvalidateVisual();
         surface.ReportDimensions();
+        surface.PublishViewport();
     }
 
     private void OnEmulatorChanged(object? sender, EventArgs e) => Interlocked.Exchange(ref _dirty, 1);
@@ -423,12 +496,13 @@ public sealed class TerminalSurface : FrameworkElement
     private void UpdateMetrics()
     {
         _pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        _regular = new Typeface(FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        _regular = new Typeface(FontFamily, FontStyles.Normal, FontWeight, FontStretches.Normal);
         var metric = new FormattedText("M", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             _regular, FontSize, Brushes.White, _pixelsPerDip);
         _cellWidth = Math.Max(1, Math.Ceiling(metric.WidthIncludingTrailingWhitespace * _pixelsPerDip) / _pixelsPerDip);
-        _cellHeight = Math.Max(1, Math.Ceiling(Math.Max(metric.Height, FontSize * 1.38) * _pixelsPerDip) / _pixelsPerDip);
+        _cellHeight = Math.Max(1, Math.Ceiling(Math.Max(metric.Height, FontSize * LineHeight) * _pixelsPerDip) / _pixelsPerDip);
         _glyphs.Clear();
+        _shaped.Clear();
         Interlocked.Exchange(ref _dirty, 1);
     }
 
@@ -447,12 +521,12 @@ public sealed class TerminalSurface : FrameworkElement
     {
         if (!snapshot.CursorVisible || snapshot.CursorColumn < 0 || snapshot.CursorColumn >= snapshot.Columns ||
             snapshot.CursorRow < 0 || snapshot.CursorRow >= snapshot.Rows ||
-            (IsKeyboardFocused && snapshot.CursorBlink && !_blinkVisible)) return;
+            ((IsKeyboardFocused || PreviewCursor) && snapshot.CursorBlink && !_blinkVisible)) return;
         var cell = snapshot.Lines[snapshot.CursorRow].Cells[snapshot.CursorColumn];
         var width = Math.Max(1, cell.Width) * _cellWidth;
         var rectangle = new Rect(snapshot.CursorColumn * _cellWidth, snapshot.CursorRow * _cellHeight, width, _cellHeight);
         var brush = Brush(snapshot.CursorColor);
-        if (!IsKeyboardFocused)
+        if (!IsKeyboardFocused && !PreviewCursor)
             context.DrawRectangle(null, new Pen(brush, 1 / _pixelsPerDip), rectangle);
         else if (snapshot.CursorShape == TerminalCursorShape.Underline)
             context.DrawRectangle(brush, null, new Rect(rectangle.Left, rectangle.Bottom - 2, rectangle.Width, 2));
@@ -464,7 +538,19 @@ public sealed class TerminalSurface : FrameworkElement
             if (cell.Width > 0 && !cell.Invisible && !string.IsNullOrWhiteSpace(cell.Text))
             {
                 context.PushClip(new RectangleGeometry(rectangle));
-                context.DrawText(Glyph(cell with { Foreground = cell.Background }), rectangle.TopLeft);
+                if (LigaturesEnabled && CanShape(cell))
+                {
+                    var cells = snapshot.Lines[snapshot.CursorRow].Cells;
+                    var start = snapshot.CursorColumn;
+                    var end = start + 1;
+                    while (start > 0 && CanShape(cells[start - 1]) && SameRun(cell, cells[start - 1])) start--;
+                    while (end < cells.Count && CanShape(cells[end]) && SameRun(cell, cells[end])) end++;
+                    var text = string.Concat(cells.Skip(start).Take(end - start).Select(item => item.Text));
+                    context.PushTransform(new TranslateTransform(start * _cellWidth, rectangle.Top));
+                    context.DrawDrawing(Shape(text, cell with { Foreground = cell.Background, Dim = false }, (end - start) * _cellWidth).Drawing);
+                    context.Pop();
+                }
+                else context.DrawText(Glyph(cell with { Foreground = cell.Background }), rectangle.TopLeft);
                 context.Pop();
             }
         }
@@ -477,13 +563,65 @@ public sealed class TerminalSurface : FrameworkElement
         if (_glyphs.TryGetValue(key, out var glyph)) return glyph;
         var typeface = cell.Bold || cell.Italic
             ? new Typeface(FontFamily, cell.Italic ? FontStyles.Italic : FontStyles.Normal,
-                cell.Bold ? FontWeights.Bold : FontWeights.Normal, FontStretches.Normal)
+                cell.Bold ? FontWeights.Bold : FontWeight, FontStretches.Normal)
             : _regular;
         glyph = new FormattedText(cell.Text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             typeface, FontSize, Brush(color), _pixelsPerDip);
         if (_glyphs.Count >= 2048) _glyphs.Clear();
         _glyphs[key] = glyph;
         return glyph;
+    }
+
+    private static bool CanShape(TerminalCell cell) => cell.Width == 1 && !cell.Invisible && cell.Text.Length == 1
+        && cell.Text[0] is >= ' ' and <= '~';
+
+    private static bool SameRun(TerminalCell first, TerminalCell next) => first.Foreground == next.Foreground
+        && first.Background == next.Background && first.Bold == next.Bold && first.Italic == next.Italic
+        && first.Dim == next.Dim && first.Underline == next.Underline && first.StrikeThrough == next.StrikeThrough
+        && first.Overline == next.Overline && first.Selected == next.Selected;
+
+    private void DrawDecorations(DrawingContext context, TerminalCell cell, Rect bounds)
+    {
+        if (!cell.Underline && !cell.StrikeThrough && !cell.Overline) return;
+        var pen = new Pen(Brush(cell.Foreground), Math.Max(1 / _pixelsPerDip, FontSize / 14));
+        if (cell.Underline) context.DrawLine(pen, new Point(bounds.Left, bounds.Bottom - 2), new Point(bounds.Right, bounds.Bottom - 2));
+        if (cell.StrikeThrough) context.DrawLine(pen, new Point(bounds.Left, bounds.Top + _cellHeight * .53), new Point(bounds.Right, bounds.Top + _cellHeight * .53));
+        if (cell.Overline) context.DrawLine(pen, new Point(bounds.Left, bounds.Top + 1), new Point(bounds.Right, bounds.Top + 1));
+    }
+
+    private ShapedText Shape(string text, TerminalCell cell, double cellAdvance)
+    {
+        var color = cell.Dim ? Dim(cell.Foreground) : cell.Foreground;
+        var key = new ShapedKey(text, color, cell.Bold, cell.Italic, cellAdvance, LigaturesEnabled);
+        if (_shaped.TryGetValue(key, out var cached)) return cached;
+        _textFormatter ??= TextFormatter.Create(TextFormattingMode.Ideal);
+        var typeface = new Typeface(FontFamily, cell.Italic ? FontStyles.Italic : FontStyles.Normal,
+            cell.Bold ? FontWeights.Bold : FontWeight, FontStretches.Normal);
+        var properties = new TerminalRunProperties(typeface, FontSize, Brush(color), _pixelsPerDip, LigaturesEnabled);
+        using var line = _textFormatter.FormatLine(new TerminalTextSource(text, properties), 0, 1_000_000,
+            new TerminalParagraphProperties(properties), null);
+        var glyphIndices = line.GetIndexedGlyphRuns().SelectMany(run => run.GlyphRun.GlyphIndices).ToArray();
+        var drawing = new DrawingGroup();
+        using (var context = drawing.Open()) line.Draw(context, new Point(), InvertAxes.None);
+        var width = line.WidthIncludingTrailingWhitespace;
+        // The font's mono advance is retained through OpenType shaping, then aligned to this
+        // surface's physical-pixel-rounded grid. Every operator still occupies its original cells.
+        if (width > 0) drawing.Transform = new ScaleTransform(cellAdvance / width, 1);
+        drawing.Freeze();
+        var shaped = new ShapedText(drawing, Array.AsReadOnly(glyphIndices), width, cellAdvance);
+        if (_shaped.Count >= 512) _shaped.Clear();
+        _shaped[key] = shaped;
+        return shaped;
+    }
+
+    private void PublishViewport()
+    {
+        var snapshot = _snapshot;
+        var state = (snapshot?.ScrollbackCount ?? 0, snapshot?.ViewportOffset ?? 0,
+            snapshot?.Rows ?? 0, snapshot?.IsAlternateBuffer ?? false, snapshot?.HasNewOutputWhileScrolled ?? false);
+        if (_lastViewport == state) return;
+        _lastViewport = state;
+        ViewportChanged?.Invoke(this, new TerminalViewportEventArgs(state.Item1, state.Item2, state.Item3, state.Item4, state.Item5));
     }
 
     private SolidColorBrush Brush(uint argb)
@@ -509,8 +647,8 @@ public sealed class TerminalSurface : FrameworkElement
         Math.Clamp((int)Math.Floor(position.X / _cellWidth), 0, Math.Max(0, (_snapshot?.Columns ?? 80) - 1)),
         Math.Clamp((int)Math.Floor(position.Y / _cellHeight), 0, Math.Max(0, (_snapshot?.Rows ?? 24) - 1)));
 
-    private bool ForwardMouseToRemote() => IsInputEnabled && Emulator?.IsMouseTracking == true &&
-        !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+    private bool ForwardMouseToRemote(ModifierKeys? modifiers = null) => IsInputEnabled && Emulator?.IsMouseTracking == true &&
+        !(modifiers ?? Keyboard.Modifiers).HasFlag(ModifierKeys.Shift);
 
     private static TerminalPointerButton ToPointerButton(System.Windows.Input.MouseButton button) => button switch
     {
@@ -686,6 +824,102 @@ public sealed class TerminalSurface : FrameworkElement
     private void ReportClipboardError(string key) => OperationFailed?.Invoke(this, new TerminalSurfaceErrorEventArgs(key));
 
     private readonly record struct GlyphKey(string Text, uint Color, bool Bold, bool Italic);
+    private readonly record struct ShapedKey(string Text, uint Color, bool Bold, bool Italic, double CellAdvance, bool Ligatures);
+    private sealed record ShapedText(DrawingGroup Drawing, IReadOnlyList<ushort> GlyphIndices, double NaturalWidth, double CellAdvance);
+
+    private sealed class TerminalTextSource(string text, TextRunProperties properties) : TextSource
+    {
+        public override TextRun GetTextRun(int index) => index < text.Length
+            ? new TextCharacters(text, index, text.Length - index, properties) : new TextEndOfParagraph(1);
+        public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int limit)
+            => new(limit, new CultureSpecificCharacterBufferRange(CultureInfo.InvariantCulture,
+                new CharacterBufferRange(text, 0, Math.Min(limit, text.Length))));
+        public override int GetTextEffectCharacterIndexFromTextSourceCharacterIndex(int index) => index;
+    }
+
+    private sealed class TerminalRunProperties : TextRunProperties
+    {
+        private readonly Typeface _typeface;
+        private readonly double _size;
+        private readonly Brush _brush;
+        private readonly TextRunTypographyProperties _typography;
+        public TerminalRunProperties(Typeface typeface, double size, Brush brush, double pixelsPerDip, bool ligatures)
+        {
+            _typeface = typeface; _size = size; _brush = brush;
+            _typography = ligatures ? TerminalTypography.Enabled : TerminalTypography.Disabled;
+            PixelsPerDip = pixelsPerDip;
+        }
+        public override Typeface Typeface => _typeface;
+        public override double FontRenderingEmSize => _size;
+        public override double FontHintingEmSize => _size;
+        public override TextDecorationCollection TextDecorations => null!;
+        public override Brush ForegroundBrush => _brush;
+        public override Brush BackgroundBrush => null!;
+        public override CultureInfo CultureInfo => CultureInfo.InvariantCulture;
+        public override TextEffectCollection TextEffects => null!;
+        public override TextRunTypographyProperties TypographyProperties => _typography;
+    }
+
+    private sealed class TerminalParagraphProperties(TextRunProperties properties) : TextParagraphProperties
+    {
+        public override FlowDirection FlowDirection => FlowDirection.LeftToRight;
+        public override TextAlignment TextAlignment => TextAlignment.Left;
+        public override double LineHeight => 0;
+        public override bool FirstLineInParagraph => true;
+        public override TextRunProperties DefaultTextRunProperties => properties;
+        public override TextWrapping TextWrapping => TextWrapping.NoWrap;
+        public override TextMarkerProperties TextMarkerProperties => null!;
+        public override double Indent => 0;
+    }
+
+    private sealed class TerminalTypography(bool enabled) : TextRunTypographyProperties
+    {
+        public static readonly TerminalTypography Enabled = new(true);
+        public static readonly TerminalTypography Disabled = new(false);
+        public override bool StandardLigatures => enabled;
+        public override bool ContextualLigatures => enabled;
+        public override bool ContextualAlternates => enabled;
+        public override bool DiscretionaryLigatures => false;
+        public override bool HistoricalLigatures => false;
+        public override bool HistoricalForms => false;
+        public override bool Kerning => false;
+        public override bool CapitalSpacing => false;
+        public override bool CaseSensitiveForms => false;
+        public override bool StylisticSet1 => false;
+        public override bool StylisticSet2 => false;
+        public override bool StylisticSet3 => false;
+        public override bool StylisticSet4 => false;
+        public override bool StylisticSet5 => false;
+        public override bool StylisticSet6 => false;
+        public override bool StylisticSet7 => false;
+        public override bool StylisticSet8 => false;
+        public override bool StylisticSet9 => false;
+        public override bool StylisticSet10 => false;
+        public override bool StylisticSet11 => false;
+        public override bool StylisticSet12 => false;
+        public override bool StylisticSet13 => false;
+        public override bool StylisticSet14 => false;
+        public override bool StylisticSet15 => false;
+        public override bool StylisticSet16 => false;
+        public override bool StylisticSet17 => false;
+        public override bool StylisticSet18 => false;
+        public override bool StylisticSet19 => false;
+        public override bool StylisticSet20 => false;
+        public override bool SlashedZero => false;
+        public override bool MathematicalGreek => false;
+        public override bool EastAsianExpertForms => false;
+        public override FontVariants Variants => default;
+        public override FontCapitals Capitals => default;
+        public override FontFraction Fraction => default;
+        public override FontNumeralStyle NumeralStyle => default;
+        public override FontNumeralAlignment NumeralAlignment => default;
+        public override FontEastAsianWidths EastAsianWidths => default;
+        public override FontEastAsianLanguage EastAsianLanguage => default;
+        public override int StandardSwashes => 0;
+        public override int ContextualSwashes => 0;
+        public override int StylisticAlternates => 0;
+        public override int AnnotationAlternates => 0;
+    }
     private sealed class TerminalPasteLimitException() : Exception("The clipboard text exceeds the paste limit.");
 
     [DllImport("user32.dll")]

@@ -24,6 +24,7 @@ public partial class App : Application
         base.OnStartup(e);
         LocalizationService.Current.Initialize(this);
         ThemeService.Current.Initialize(this);
+        TerminalPreferencesService.Current.Initialize();
 
         // Only one writer owns the local profile file in a Windows session.
         _instanceMutex = new Mutex(true, InstanceMutexName, out _ownsMutex);

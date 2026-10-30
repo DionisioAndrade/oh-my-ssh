@@ -1,0 +1,18 @@
+{
+  "TerminalControls.ZoomIn": "Aumentar fonte",
+  "TerminalControls.ZoomOut": "Diminuir fonte",
+  "TerminalControls.ResetZoom": "Restaurar tamanho padrão da fonte (13)",
+  "TerminalControls.Customize": "Personalizar terminal",
+  "TerminalControls.History": "Histórico do terminal",
+  "TerminalControls.BackToEnd": "Voltar ao final",
+  "TerminalControls.NewOutput": "Nova saída",
+  "TerminalControls.Dismiss": "Dispensar aviso",
+  "TerminalControls.SaveError": "Não foi possível salvar a preferência do terminal. Verifique o acesso à pasta e tente novamente.",
+  "TerminalControls.Tabs": "Abas do terminal",
+  "TerminalControls.NewTab": "Abrir novo terminal",
+  "TerminalControls.CloseTab": "Fechar esta aba do terminal",
+  "TerminalControls.RenameTab": "Renomear aba do terminal",
+  "TerminalControls.TabName": "Nome da aba",
+  "TerminalControls.SettingsTitle": "Aparência do terminal",
+  "TerminalControls.SettingsDescription": "Escolha fontes, ligaduras, cores, cursor, espaçamento e histórico. As preferências se aplicam a todas as abas e ficam salvas."
+}

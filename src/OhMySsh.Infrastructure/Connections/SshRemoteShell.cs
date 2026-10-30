@@ -12,6 +12,7 @@ internal sealed class SshRemoteShell : IRemoteShell
     private const int OutputBufferSize = 512 * 1024;
     private readonly ShellStream _stream;
     private readonly Func<bool> _parentConnected;
+    private Action? _onDisposed;
     private readonly byte[] _output = new byte[OutputBufferSize];
     private readonly byte[] _receiveBuffer = new byte[BlockSize];
     private readonly SemaphoreSlim _readGate = new(1, 1);
@@ -27,10 +28,11 @@ internal sealed class SshRemoteShell : IRemoteShell
     private RemoteTerminalException? _failure;
     private int _closed;
 
-    internal SshRemoteShell(ShellStream stream, Func<bool> parentConnected)
+    internal SshRemoteShell(ShellStream stream, Func<bool> parentConnected, Action? onDisposed = null)
     {
         _stream = stream;
         _parentConnected = parentConnected;
+        _onDisposed = onDisposed;
         lock (_receiveGate)
         {
             _stream.DataReceived += OnDataReceived;
@@ -171,6 +173,7 @@ internal sealed class SshRemoteShell : IRemoteShell
             _outputCount = 0;
         }
         lock (_receiveGate) { Array.Clear(_receiveBuffer); }
+        Interlocked.Exchange(ref _onDisposed, null)?.Invoke();
     }
 
     internal void ConnectionLost() => RequestClose(MapFailure(false));

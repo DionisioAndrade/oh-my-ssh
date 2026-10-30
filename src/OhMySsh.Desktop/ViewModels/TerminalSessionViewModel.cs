@@ -1,10 +1,12 @@
 using System.Buffers;
 using System.Threading.Channels;
+using System.Windows;
 using System.Windows.Threading;
 using OhMySsh.Core.Abstractions;
 using OhMySsh.Core.Localization;
 using OhMySsh.Core.Models;
 using OhMySsh.Desktop.Terminal;
+using OhMySsh.Desktop.Services;
 
 namespace OhMySsh.Desktop.ViewModels;
 
@@ -27,11 +29,16 @@ public sealed class TerminalSessionViewModel : ObservableObject, IAsyncDisposabl
     private bool _open;
     private bool _disposed;
     private string _statusKey = "Terminal.Disconnected";
+    private readonly int _number;
+    private string? _customName;
 
-    public TerminalSessionViewModel(Action<string, string>? log = null, Dispatcher? dispatcher = null)
+    public TerminalSessionViewModel(Action<string, string>? log = null, Dispatcher? dispatcher = null, int number = 1)
     {
         _dispatcher = dispatcher ?? Dispatcher.CurrentDispatcher;
         _log = log;
+        _number = number;
+        WeakEventManager<TerminalPreferencesService, EventArgs>.AddHandler(TerminalPreferencesService.Current,
+            nameof(TerminalPreferencesService.Changed), Preferences_Changed);
         OpenCommand = new AsyncRelayCommand(OpenAsync, CanOpen, _ => ReportFailure("Terminal.Failed"));
         CloseCommand = new AsyncRelayCommand(CloseAsync,
             () => _run is not null || IsOpening || Emulator is not null, _ => ReportFailure("Terminal.Failed"));
@@ -39,6 +46,18 @@ public sealed class TerminalSessionViewModel : ObservableObject, IAsyncDisposabl
 
     public AsyncRelayCommand OpenCommand { get; }
     public AsyncRelayCommand CloseCommand { get; }
+    public string Name
+    {
+        get => _customName ?? UiText.Format("TerminalTabs.DefaultName", _number);
+        set
+        {
+            var cleaned = new string((value ?? string.Empty).Where(character => !char.IsControl(character)).ToArray()).Trim();
+            if (cleaned.Length > 64) cleaned = cleaned[..(char.IsHighSurrogate(cleaned[63]) ? 63 : 64)];
+            var custom = cleaned.Length == 0 ? null : cleaned;
+            if (SetProperty(ref _customName, custom, nameof(Name))) OnPropertyChanged(nameof(HasCustomName));
+        }
+    }
+    public bool HasCustomName => _customName is not null;
     public TerminalEmulator? Emulator { get => _emulator; private set => SetProperty(ref _emulator, value); }
     public bool IsOpening { get => _opening; private set { if (SetProperty(ref _opening, value)) NotifyState(); } }
     public bool IsOpen { get => _open; private set { if (SetProperty(ref _open, value)) NotifyState(); } }
@@ -92,7 +111,10 @@ public sealed class TerminalSessionViewModel : ObservableObject, IAsyncDisposabl
     private async Task OpenAsync()
     {
         if (_session is not { IsConnected: true, Shells: { } service } session || !CanOpen()) return;
-        var run = new TerminalRun(++_generation, session, new TerminalEmulator(_columns, _rows), _columns, _rows, new CancellationTokenSource());
+        var preferences = TerminalPreferencesService.Current.Preferences;
+        var emulator = new TerminalEmulator(_columns, _rows, preferences.ScrollbackLines);
+        emulator.ApplyPreferences(preferences);
+        var run = new TerminalRun(++_generation, session, emulator, _columns, _rows, new CancellationTokenSource());
         _run = run;
         run.InputHandler = (_, args) => EnqueueInput(run, args.Data);
         run.OwnerFinish = key => QueueFinish(run, key);
@@ -317,6 +339,17 @@ public sealed class TerminalSessionViewModel : ObservableObject, IAsyncDisposabl
 
     private void ReportFailure(string key) { _ = StopCurrent(); SetStatus(key); }
 
+    private void Preferences_Changed(object? sender, EventArgs e)
+    {
+        if (_disposed) return;
+        if (!_dispatcher.CheckAccess())
+        {
+            if (!_dispatcher.HasShutdownStarted) _dispatcher.BeginInvoke(new Action(() => Preferences_Changed(sender, e)));
+            return;
+        }
+        Emulator?.ApplyPreferences(TerminalPreferencesService.Current.Preferences);
+    }
+
     private static string GetErrorKey(Exception exception) => exception is RemoteTerminalException { Code: RemoteTerminalErrorCode.BufferLimitExceeded }
         ? "Terminal.OutputOverflow" : "Terminal.Failed";
 
@@ -325,6 +358,8 @@ public sealed class TerminalSessionViewModel : ObservableObject, IAsyncDisposabl
         if (_disposed) return;
         var retirement = DetachAsync();
         _disposed = true;
+        WeakEventManager<TerminalPreferencesService, EventArgs>.RemoveHandler(TerminalPreferencesService.Current,
+            nameof(TerminalPreferencesService.Changed), Preferences_Changed);
         await retirement;
     }
 

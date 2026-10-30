@@ -1,0 +1,8 @@
+{
+  "TerminalTabs.DefaultName": "Terminal {0}",
+  "TerminalTabs.New": "New terminal",
+  "TerminalTabs.Close": "Close terminal tab",
+  "TerminalTabs.Rename": "Rename terminal",
+  "TerminalTabs.Limit": "Up to 8 terminal tabs can be open. Close a tab to open another.",
+  "TerminalTabs.Failed": "The terminal could not be opened. Check its status and try again."
+}

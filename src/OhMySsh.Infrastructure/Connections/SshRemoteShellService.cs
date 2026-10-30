@@ -4,13 +4,14 @@ using Renci.SshNet;
 
 namespace OhMySsh.Infrastructure.Connections;
 
-/// <summary>Owns at most one interactive channel on the existing authenticated SSH client.</summary>
+/// <summary>Owns independent interactive channels on one authenticated SSH connection.</summary>
 internal sealed class SshRemoteShellService(SshClient client, Func<bool> parentConnected) : IRemoteShellService, IAsyncDisposable
 {
+    private const int MaximumChannels = 8;
     private readonly object _lifecycleGate = new();
     private readonly CancellationTokenSource _lifetime = new();
-    private Task<IRemoteShell>? _opening;
-    private SshRemoteShell? _active;
+    private readonly SemaphoreSlim _creationGate = new(1, 1);
+    private readonly HashSet<ChannelEntry> _channels = [];
     private Task? _disposeTask;
     private bool _disposed;
 
@@ -22,17 +23,16 @@ internal sealed class SshRemoteShellService(SshClient client, Func<bool> parentC
         lock (_lifecycleGate)
         {
             if (_disposed || _lifetime.IsCancellationRequested || !parentConnected()) throw Unavailable();
-            if (_opening is { IsCompleted: false } || _active is { IsOpen: true })
-            {
-                throw new RemoteTerminalException(RemoteTerminalErrorCode.AlreadyOpen, "An interactive shell is already open.");
-            }
+            if (_channels.Count >= MaximumChannels)
+                throw new RemoteTerminalException(RemoteTerminalErrorCode.AlreadyOpen, "The interactive shell limit has been reached.");
 
-            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-            // SSH.NET's PTY/shell handshake is synchronous. Keep it off the dispatcher and track its
-            // eventual cleanup even when a caller stops waiting before the handshake completes.
-            _opening = Task.Run(() => OpenCoreAsync(options, cancellation));
-            _ = ObserveAsync(_opening);
-            return AwaitOpeningAsync(_opening, cancellationToken);
+            var entry = new ChannelEntry(CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token));
+            _channels.Add(entry);
+            // Serialize only creation. Each opened PTY has independent input, output,
+            // dimensions, cancellation and lifetime on the authenticated SSH transport.
+            entry.Opening = Task.Run(() => OpenCoreAsync(entry, options));
+            _ = ObserveOpeningAsync(entry);
+            return AwaitOpeningAsync(entry.Opening, cancellationToken);
         }
     }
 
@@ -41,8 +41,6 @@ internal sealed class SshRemoteShellService(SshClient client, Func<bool> parentC
         try { return await opening.WaitAsync(cancellationToken).ConfigureAwait(false); }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // A completed handshake can race the caller's canceled wait. That channel has no owner
-            // at the call site, so explicitly close it even if OpenCore already handed it to us.
             _ = CloseCanceledOpeningAsync(opening);
             throw;
         }
@@ -54,60 +52,73 @@ internal sealed class SshRemoteShellService(SshClient client, Func<bool> parentC
         catch (Exception exception) when (exception is not OutOfMemoryException) { }
     }
 
-    private async Task<IRemoteShell> OpenCoreAsync(RemoteTerminalOptions options, CancellationTokenSource cancellation)
+    private async Task<IRemoteShell> OpenCoreAsync(ChannelEntry entry, RemoteTerminalOptions options)
     {
-        using (cancellation)
+        using (entry.Cancellation)
         {
             SshRemoteShell? created = null;
+            var acquired = false;
             try
             {
-                var token = cancellation.Token;
-                token.ThrowIfCancellationRequested();
-                if (_active is { } previous) await previous.DisposeAsync().ConfigureAwait(false);
+                var token = entry.Cancellation.Token;
+                await _creationGate.WaitAsync(token).ConfigureAwait(false);
+                acquired = true;
                 token.ThrowIfCancellationRequested();
                 if (!parentConnected()) throw Unavailable();
                 var stream = client.CreateShellStream(options.TerminalType, (uint)options.Columns, (uint)options.Rows,
                     width: 0, height: 0, bufferSize: SshRemoteShell.BlockSize);
-                try { created = new SshRemoteShell(stream, parentConnected); }
-                catch
-                {
-                    stream.Dispose();
-                    throw;
-                }
-
+                try { created = new SshRemoteShell(stream, parentConnected, () => ReleaseChannel(entry)); }
+                catch { stream.Dispose(); throw; }
                 lock (_lifecycleGate)
                 {
                     token.ThrowIfCancellationRequested();
                     if (_disposed || !parentConnected()) throw Unavailable();
-                    _active = created;
+                    entry.Shell = created;
                 }
-
                 return created;
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)
             {
                 if (created is not null) await created.DisposeAsync().ConfigureAwait(false);
-                if (cancellation.IsCancellationRequested)
-                {
-                    throw new OperationCanceledException("Opening the interactive shell was canceled.", cancellation.Token);
-                }
-
+                if (entry.Cancellation.IsCancellationRequested)
+                    throw new OperationCanceledException("Opening the interactive shell was canceled.", entry.Cancellation.Token);
                 throw exception as RemoteTerminalException ?? SshRemoteShell.MapFailure(parentConnected());
             }
+            finally { if (acquired) _creationGate.Release(); }
+        }
+    }
+
+    private async Task ObserveOpeningAsync(ChannelEntry entry)
+    {
+        try { await entry.Opening.ConfigureAwait(false); }
+        catch (Exception exception) when (exception is not OutOfMemoryException) { }
+        finally
+        {
+            lock (_lifecycleGate)
+                if (!entry.Opening.IsCompletedSuccessfully || entry.Released) _channels.Remove(entry);
+        }
+    }
+
+    private void ReleaseChannel(ChannelEntry entry)
+    {
+        lock (_lifecycleGate)
+        {
+            entry.Released = true;
+            // Keep an opening worker tracked until its final cleanup has actually unwound.
+            if (entry.Opening.IsCompleted) _channels.Remove(entry);
         }
     }
 
     public void CancelPendingOperations()
     {
-        SshRemoteShell? active;
+        SshRemoteShell[] active;
         lock (_lifecycleGate)
         {
             if (_disposed) return;
-            // Cancellation precedes the snapshot so an opening channel cannot be handed off after it.
             _lifetime.Cancel();
-            active = _active;
+            active = _channels.Select(entry => entry.Shell).OfType<SshRemoteShell>().ToArray();
         }
-        active?.ConnectionLost();
+        foreach (var shell in active) shell.ConnectionLost();
     }
 
     public ValueTask DisposeAsync()
@@ -118,34 +129,41 @@ internal sealed class SshRemoteShellService(SshClient client, Func<bool> parentC
             {
                 _disposed = true;
                 _lifetime.Cancel();
-                var pending = _opening;
-                var active = _active;
-                // Close immediately to unblock reads/writes; wait for any pending handshake before
-                // allowing the parent session to dispose its SSH client and authentication resources.
-                var close = active?.DisposeAsync().AsTask() ?? Task.CompletedTask;
+                var channels = _channels.ToArray();
+                var closing = channels.Select(entry => entry.Shell?.DisposeAsync().AsTask() ?? Task.CompletedTask).ToArray();
                 _disposeTask = Task.Run(async () =>
                 {
                     try
                     {
-                        if (pending is not null) await ObserveAsync(pending).ConfigureAwait(false);
-                        await close.ConfigureAwait(false);
-                        if (_active is { } shell && !ReferenceEquals(shell, active))
-                            await shell.DisposeAsync().ConfigureAwait(false);
+                        await Task.WhenAll(channels.Select(RetireAsync)).ConfigureAwait(false);
+                        await Task.WhenAll(closing).ConfigureAwait(false);
                     }
-                    finally { _lifetime.Dispose(); }
+                    finally
+                    {
+                        lock (_lifecycleGate) _channels.Clear();
+                        _creationGate.Dispose();
+                        _lifetime.Dispose();
+                    }
                 });
             }
-
             return new ValueTask(_disposeTask);
         }
     }
 
-    private static async Task ObserveAsync(Task task)
+    private static async Task RetireAsync(ChannelEntry entry)
     {
-        try { await task.ConfigureAwait(false); }
+        try { await (await entry.Opening.ConfigureAwait(false)).DisposeAsync().ConfigureAwait(false); }
         catch (Exception exception) when (exception is not OutOfMemoryException) { }
     }
 
     private static RemoteTerminalException Unavailable() => new(RemoteTerminalErrorCode.Unavailable,
         "An authenticated SSH connection is required to open an interactive shell.");
+
+    private sealed class ChannelEntry(CancellationTokenSource cancellation)
+    {
+        public CancellationTokenSource Cancellation { get; } = cancellation;
+        public Task<IRemoteShell> Opening { get; set; } = null!;
+        public SshRemoteShell? Shell { get; set; }
+        public bool Released { get; set; }
+    }
 }
