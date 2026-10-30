@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using OhMySsh.Core.Models;
+using OhMySsh.Core.Localization;
 
 namespace OhMySsh.Desktop.ViewModels;
 
@@ -12,13 +13,13 @@ public static class SshCommandBuilder
         ArgumentNullException.ThrowIfNull(profile);
         if (profile.Protocol is not (ConnectionProtocol.Ssh or ConnectionProtocol.Sftp))
         {
-            throw new ArgumentException("Este perfil não utiliza SSH.", nameof(profile));
+            throw new ArgumentException(UiText.Get("Vm.Validation.SshProtocol"), nameof(profile));
         }
 
         if (string.IsNullOrWhiteSpace(profile.Host) || string.IsNullOrWhiteSpace(profile.Username)
             || profile.Port is < 1 or > 65535)
         {
-            throw new ArgumentException("Confira o servidor, o usuário e a porta do perfil.", nameof(profile));
+            throw new ArgumentException(UiText.Get("Vm.Validation.SshProfile"), nameof(profile));
         }
 
         // -l keeps the username separate from the destination, including IPv6.
@@ -51,7 +52,7 @@ public static class SshCommandBuilder
             if (character == '"' || char.IsControl(character)
                 || char.GetUnicodeCategory(character) is UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator)
             {
-                throw new ArgumentException("Os dados do comando SSH não podem conter aspas duplas ou quebras de linha.");
+                throw new ArgumentException(UiText.Get("Vm.Validation.SshQuotes"));
             }
 
             // PowerShell also recognizes these typographic apostrophes as

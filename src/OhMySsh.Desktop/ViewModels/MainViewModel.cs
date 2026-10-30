@@ -11,11 +11,12 @@ using System.Windows.Data;
 using System.Windows.Threading;
 using OhMySsh.Core.Abstractions;
 using OhMySsh.Core.Models;
+using OhMySsh.Core.Localization;
 using OhMySsh.Infrastructure.Connections;
 
 namespace OhMySsh.Desktop.ViewModels;
 
-public sealed class MainViewModel : ObservableObject
+public sealed partial class MainViewModel : ObservableObject
 {
     private readonly IConnectionProfileStore _store;
     private readonly ILocalFileService _localFiles;
@@ -29,7 +30,7 @@ public sealed class MainViewModel : ObservableObject
     private FileEntry? _selectedLocalEntry;
     private string _localPath;
     private string _loadedLocalPath;
-    private string _statusMessage = "Ready to start";
+    private UiMessage _statusMessage = new("Vm.Status.Ready");
     private string _statusKind = "Info";
     private bool _isBusy;
     private bool _favoritesOnly;
@@ -41,7 +42,7 @@ public sealed class MainViewModel : ObservableObject
     private CancellationTokenSource? _connectionCancellation;
     private bool _isConnecting;
     private bool _isDisconnecting;
-    private string _connectionError = string.Empty;
+    private UiMessage? _connectionError;
     private string _manualName = string.Empty;
     private string _manualHost = string.Empty;
     private string _manualPort = "22";
@@ -102,6 +103,7 @@ public sealed class MainViewModel : ObservableObject
             ReportCommandFailure);
         CopyEndpointCommand = new RelayCommand(CopyEndpoint, CanUseSelectedConnection);
         FilterFavoritesCommand = new RelayCommand(() => FavoritesOnly = !FavoritesOnly);
+        InitializeRemoteCommands();
     }
 
     public ObservableCollection<ConnectionProfile> Connections { get; } = [];
@@ -165,7 +167,7 @@ public sealed class MainViewModel : ObservableObject
                     ManualPort = value is ConnectionProtocol.Ssh or ConnectionProtocol.Sftp ? "22" : "21";
                 }
 
-                ConnectionError = string.Empty;
+                SetConnectionError(null);
             }
         }
     }
@@ -194,22 +196,19 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public string ConnectionError
+    public string ConnectionError => _connectionError?.Text ?? string.Empty;
+
+    private void SetConnectionError(UiMessage? message)
     {
-        get => _connectionError;
-        private set
-        {
-            if (SetProperty(ref _connectionError, value))
-            {
-                OnPropertyChanged(nameof(HasConnectionError));
-            }
-        }
+        _connectionError = message;
+        OnPropertyChanged(nameof(ConnectionError));
+        OnPropertyChanged(nameof(HasConnectionError));
     }
 
     public bool HasConnectionError => ConnectionError.Length > 0;
     public bool HasActiveSession => _activeSession?.IsConnected == true;
     public ConnectionProfile? ActiveConnection => HasActiveSession ? _activeConnection : null;
-    public string ActiveConnectionEndpoint => ActiveConnection is { } profile ? GetEndpoint(profile) : "Nenhuma conexão ativa";
+    public string ActiveConnectionEndpoint => ActiveConnection is { } profile ? GetEndpoint(profile) : UiText.Get("Vm.NoActiveConnection");
 
     public string SearchText
     {
@@ -259,7 +258,13 @@ public sealed class MainViewModel : ObservableObject
     public FileEntry? SelectedLocalEntry
     {
         get => _selectedLocalEntry;
-        set => SetProperty(ref _selectedLocalEntry, value);
+        set
+        {
+            if (SetProperty(ref _selectedLocalEntry, value))
+            {
+                UploadCommand.NotifyCanExecuteChanged();
+            }
+        }
     }
 
     public string LocalPath
@@ -274,14 +279,13 @@ public sealed class MainViewModel : ObservableObject
         {
             var directories = LocalEntries.Count(entry => entry.IsDirectory);
             var files = LocalEntries.Count - directories;
-            return $"{LocalEntries.Count} itens · {directories} pastas · {files} arquivos";
+            return UiText.Format("Vm.FileSummary", LocalEntries.Count, directories, files);
         }
     }
 
     public string StatusMessage
     {
-        get => _statusMessage;
-        private set => SetProperty(ref _statusMessage, value);
+        get => _profileLoadFailure is null ? _statusMessage.Text : UiText.Get(_profileLoadFailure);
     }
 
     public string StatusKind
@@ -321,20 +325,20 @@ public sealed class MainViewModel : ObservableObject
     public int FilteredConnectionCount => FilteredConnections.Cast<ConnectionProfile>().Count();
     public bool HasSelectedConnection => SelectedConnection is not null;
     public bool HasLocalEntries => LocalEntries.Count > 0;
-    public string SelectedConnectionTitle => (ActiveConnection ?? SelectedConnection)?.Name ?? "Área de trabalho";
-    public string SelectedConnectionEndpoint => (ActiveConnection ?? SelectedConnection) is { } profile ? GetEndpoint(profile) : "Nenhuma conexão selecionada";
+    public string SelectedConnectionTitle => (ActiveConnection ?? SelectedConnection)?.Name ?? UiText.Get("Vm.Workspace");
+    public string SelectedConnectionEndpoint => (ActiveConnection ?? SelectedConnection) is { } profile ? GetEndpoint(profile) : UiText.Get("Vm.NoSelectedConnection");
     public string SelectedProtocolLabel => (ActiveConnection ?? SelectedConnection) is { } profile ? GetProtocolLabel(profile.Protocol) : "SSH / SFTP";
     public string SessionSummary => (ActiveConnection ?? SelectedConnection) is { } profile
-        ? $"{GetProtocolLabel(profile.Protocol)} · {GetEndpoint(profile)} · {(HasActiveSession ? "conectado" : "desconectado")}"
-        : "Organize suas conexões e arquivos em um só lugar";
+        ? UiText.Format("Vm.SessionSummary", GetProtocolLabel(profile.Protocol), GetEndpoint(profile), UiText.Get(HasActiveSession ? "Vm.Connected" : "Vm.Disconnected"))
+        : UiText.Get("Vm.SessionWelcome");
     public string TerminalMessage => ActiveConnection is { } active
-        ? $"{active.Name}\n{GetEndpoint(active)}\n\nSessão conectada. O terminal interativo ainda não está disponível nesta versão."
+        ? UiText.Format("Vm.TerminalConnected", active.Name, GetEndpoint(active))
         : SelectedConnection is { } profile
-            ? $"{profile.Name}\n{GetEndpoint(profile)}\n\nNenhuma sessão aberta. O terminal interativo ainda não está disponível nesta versão."
-        : "Nenhuma sessão aberta.\n\nCadastre uma conexão para organizar seus servidores.\nO terminal interativo ainda não está disponível nesta versão.";
+            ? UiText.Format("Vm.TerminalSelected", profile.Name, GetEndpoint(profile))
+            : UiText.Get("Vm.TerminalWelcome");
     public string RemoteHint => (ActiveConnection ?? SelectedConnection) is { } profile
-        ? $"Os arquivos de {profile.Host} aparecerão aqui quando a integração de {GetProtocolLabel(profile.Protocol)} estiver disponível."
-        : "Selecione uma conexão para preparar o acesso aos arquivos do servidor.";
+        ? UiText.Format("Vm.RemoteHint", profile.Host, GetProtocolLabel(profile.Protocol))
+        : UiText.Get("Vm.RemoteHintWelcome");
 
     public AsyncRelayCommand AddConnectionCommand { get; }
     public AsyncRelayCommand EditConnectionCommand { get; }
@@ -372,8 +376,8 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            _profileLoadFailure = "Connections could not be loaded. Profile changes are disabled to preserve saved data.";
-            ReportFailure("Could not load connections", exception);
+            _profileLoadFailure = "Vm.Status.ProfileLoadFailure";
+            ReportFailure("Vm.Failure.LoadConnections", exception);
         }
         finally
         {
@@ -383,7 +387,7 @@ public sealed class MainViewModel : ObservableObject
         await NavigateToAsync(_loadedLocalPath);
         if (StatusKind != "Error" && !HasConnectionError && !HasActiveSession)
         {
-            SetStatus("Select a saved VPS or enter connection details", "Info");
+            SetStatus("Vm.Status.SelectConnection", "Info");
         }
     }
 
@@ -412,12 +416,12 @@ public sealed class MainViewModel : ObservableObject
             _loadedLocalPath = fullPath;
             LocalPath = fullPath;
             SelectedLocalEntry = null;
-            SetStatus($"Local folder refreshed · {LocalEntries.Count} items", "Success");
+            SetStatus("Vm.Status.LocalRefreshed", "Success", LocalEntries.Count);
         }
         catch (Exception exception)
         {
             LocalPath = _loadedLocalPath;
-            ReportFailure("Could not open the folder", exception);
+            ReportFailure("Vm.Failure.OpenFolder", exception);
         }
         finally
         {
@@ -434,7 +438,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var updated = Connections.Append(profile).ToArray();
-        if (await SaveConnectionsAsync(updated, profile.Id, $"VPS “{profile.Name}” saved", clearFilters: true))
+        if (await SaveConnectionsAsync(updated, profile.Id, new UiMessage("Vm.Status.ProfileSaved", profile.Name), clearFilters: true))
         {
             ProfileSaved?.Invoke(this, EventArgs.Empty);
         }
@@ -455,7 +459,7 @@ public sealed class MainViewModel : ObservableObject
 
         edited = edited with { Id = existing.Id };
         var updated = Connections.Select(profile => profile.Id == existing.Id ? edited : profile).ToArray();
-        if (await SaveConnectionsAsync(updated, edited.Id, $"VPS “{edited.Name}” updated", clearFilters: true))
+        if (await SaveConnectionsAsync(updated, edited.Id, new UiMessage("Vm.Status.ProfileUpdated", edited.Name), clearFilters: true))
         {
             ProfileSaved?.Invoke(this, EventArgs.Empty);
         }
@@ -470,7 +474,7 @@ public sealed class MainViewModel : ObservableObject
 
         var updated = Connections.Where(connection => connection.Id != profile.Id).ToArray();
         var selectedId = SelectedConnection?.Id == profile.Id ? updated.FirstOrDefault()?.Id : SelectedConnection?.Id;
-        await SaveConnectionsAsync(updated, selectedId, $"VPS “{profile.Name}” removed");
+        await SaveConnectionsAsync(updated, selectedId, new UiMessage("Vm.Status.ProfileRemoved", profile.Name));
     }
 
     private async Task ToggleFavoriteAsync(object? parameter)
@@ -485,12 +489,12 @@ public sealed class MainViewModel : ObservableObject
             ? connection with { IsFavorite = !connection.IsFavorite }
             : connection).ToArray();
         var message = profile.IsFavorite
-            ? $"“{profile.Name}” removed from favorites"
-            : $"“{profile.Name}” added to favorites";
+            ? new UiMessage("Vm.Status.FavoriteRemoved", profile.Name)
+            : new UiMessage("Vm.Status.FavoriteAdded", profile.Name);
         await SaveConnectionsAsync(updated, selectedId, message);
     }
 
-    private async Task<bool> SaveConnectionsAsync(ConnectionProfile[] profiles, Guid? selectedId, string successMessage, bool clearFilters = false)
+    private async Task<bool> SaveConnectionsAsync(ConnectionProfile[] profiles, Guid? selectedId, UiMessage successMessage, bool clearFilters = false)
     {
         if (!ProfilesAvailable)
         {
@@ -568,7 +572,7 @@ public sealed class MainViewModel : ObservableObject
         }
 
         var updated = Connections.Append(profile).ToArray();
-        if (await SaveConnectionsAsync(updated, profile.Id, $"VPS “{profile.Name}” saved", clearFilters: true))
+        if (await SaveConnectionsAsync(updated, profile.Id, new UiMessage("Vm.Status.ProfileSaved", profile.Name), clearFilters: true))
         {
             ProfileSaved?.Invoke(this, EventArgs.Empty);
         }
@@ -576,10 +580,10 @@ public sealed class MainViewModel : ObservableObject
 
     private bool TryCreateManualProfile(string group, out ConnectionProfile? profile)
     {
-        var valid = ConnectionDraftValidator.TryCreate(
+        var valid = ConnectionDraftValidator.TryCreateWithErrorKey(
             ManualName, ManualHost, ManualPort, ManualUsername, ManualPrivateKeyPath, ManualProtocol, group,
             out profile, out var error, ManualConnectionTimeoutSeconds);
-        ConnectionError = error;
+        SetConnectionError(valid ? null : new UiMessage(error));
         if (!valid)
         {
             SetStatus(error, "Error");
@@ -599,9 +603,9 @@ public sealed class MainViewModel : ObservableObject
         var settled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _connectionSettled = settled.Task;
         _connectionCancellation = cancellation;
-        ConnectionError = string.Empty;
+        SetConnectionError(null);
         IsConnecting = true;
-        SetStatus($"Connecting to {profile.Host}…", "Info");
+        SetStatus("Vm.Status.Connecting", "Info", profile.Host);
         IRemoteConnectionSession? candidate = null;
         Task<IRemoteConnectionSession>? connectionTask = null;
         var activated = false;
@@ -611,12 +615,14 @@ public sealed class MainViewModel : ObservableObject
             // that disconnected handle before requesting a replacement.
             if (_activeSession is { } previous)
             {
+                var remoteCleanup = StopRemoteSession();
                 previous.Disconnected -= OnSessionDisconnected;
                 _activeSession = null;
                 _activeConnection = null;
                 NotifyActiveSessionChanged();
                 _sessionCleanupTask = DisposeQuietlyAsync(previous);
                 await _sessionCleanupTask.WaitAsync(cancellation.Token);
+                await remoteCleanup.WaitAsync(cancellation.Token);
             }
 
             connectionTask = _remoteConnections.ConnectAsync(profile with { }, cancellation.Token);
@@ -640,7 +646,7 @@ public sealed class MainViewModel : ObservableObject
             candidate = null;
             activated = true;
             NotifySessionProperties();
-            SetStatus($"Connected to {_activeConnection.Host}", "Success");
+            SetStatus("Vm.Status.Connected", "Success", _activeConnection.Host);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -652,8 +658,8 @@ public sealed class MainViewModel : ObservableObject
                 _abandonedSessionCleanupTasks.Add(DisposeAbandonedSessionAsync(connectionTask));
             }
 
-            ConnectionError = "Connection canceled.";
-            SetStatus(ConnectionError, "Info");
+            SetConnectionError(new UiMessage("Vm.Status.Canceled"));
+            SetStatus(_connectionError!, "Info");
         }
         catch (Exception exception)
         {
@@ -678,6 +684,7 @@ public sealed class MainViewModel : ObservableObject
         if (activated && HasActiveSession && !_isShuttingDown)
         {
             ActiveSessionChanged?.Invoke(this, EventArgs.Empty);
+            StartRemoteSession(_activeSession!);
         }
     }
 
@@ -690,15 +697,17 @@ public sealed class MainViewModel : ObservableObject
         }
 
         IsDisconnecting = true;
+        var remoteCleanup = StopRemoteSession();
         session.Disconnected -= OnSessionDisconnected;
         _activeSession = null;
         _activeConnection = null;
-        ConnectionError = string.Empty;
+        SetConnectionError(null);
         NotifyActiveSessionChanged();
         try
         {
             await (_sessionCleanupTask = session.DisposeAsync().AsTask());
-            SetStatus("Disconnected. Select a saved VPS or enter connection details", "Info");
+            await remoteCleanup;
+            SetStatus("Vm.Status.Disconnected", "Info");
         }
         catch (Exception exception)
         {
@@ -717,6 +726,7 @@ public sealed class MainViewModel : ObservableObject
     {
         _isShuttingDown = true;
         CancelConnection();
+        var remoteCleanup = StopRemoteSession();
         RefreshCommandStates();
         await _connectionSettled;
         // A canceled UI await can finish before the adapter disposes its socket.
@@ -739,13 +749,14 @@ public sealed class MainViewModel : ObservableObject
             NotifyActiveSessionChanged();
             await (_sessionCleanupTask = DisposeQuietlyAsync(session));
         }
+        await remoteCleanup;
 
         // A canceled SSH.NET handshake can outlive the visible attempt. Keep
         // the dispatcher and process alive until the adapter retires its workers.
         var transportShutdown = _remoteConnections.ShutdownAsync();
         if (!transportShutdown.IsCompleted)
         {
-            SetStatus("Closing SSH connections…", "Info");
+            SetStatus("Vm.Status.Closing", "Info");
         }
         await transportShutdown;
     }
@@ -766,15 +777,17 @@ public sealed class MainViewModel : ObservableObject
         }
 
         IsDisconnecting = true;
+        var remoteCleanup = StopRemoteSession();
         session.Disconnected -= OnSessionDisconnected;
         _activeSession = null;
         _activeConnection = null;
-        ConnectionError = "The remote connection was lost. Check the server and reconnect.";
-        SetStatus(ConnectionError, "Error");
+        SetConnectionError(new UiMessage("Vm.Status.ConnectionLost"));
+        SetStatus(_connectionError!, "Error");
         NotifyActiveSessionChanged();
         try
         {
             await (_sessionCleanupTask = DisposeQuietlyAsync(session));
+            await remoteCleanup;
         }
         finally
         {
@@ -843,7 +856,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (SetProperty(ref field, value ?? string.Empty, propertyName))
         {
-            ConnectionError = string.Empty;
+            SetConnectionError(null);
         }
     }
 
@@ -852,11 +865,11 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             _interactions.CopyToClipboard(SelectedConnectionEndpoint);
-            SetStatus("Connection address copied", "Success");
+            SetStatus("Vm.Status.EndpointCopied", "Success");
         }
         catch (Exception exception)
         {
-            ReportFailure("Could not copy the connection address", exception);
+            ReportFailure("Vm.Failure.CopyEndpoint", exception);
         }
     }
 
@@ -878,11 +891,11 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             _interactions.CopyToClipboard(SshCommandBuilder.BuildPowerShell(profile));
-            SetStatus("SSH command copied for PowerShell", "Success");
+            SetStatus("Vm.Status.SshCopied", "Success");
         }
         catch (Exception exception)
         {
-            ReportFailure("Could not copy the SSH command", exception);
+            ReportFailure("Vm.Failure.CopySsh", exception);
         }
     }
 
@@ -967,46 +980,66 @@ public sealed class MainViewModel : ObservableObject
         NavigateLocalCommand.NotifyCanExecuteChanged();
         OpenLocalEntryCommand.NotifyCanExecuteChanged();
         CopyEndpointCommand.NotifyCanExecuteChanged();
+        RefreshRemoteCommandStates();
     }
 
     private void ReportCommandFailure(Exception exception)
-        => ReportFailure("Could not complete the operation", exception);
+        => ReportFailure("Vm.Failure.Operation", exception);
 
     private void ReportConnectionFailure(Exception exception)
     {
-        ConnectionError = exception switch
+        var key = exception switch
         {
-            OperationCanceledException => "Connection canceled.",
-            TimeoutException => "The server did not respond in time. Check the connection details and try again.",
-            RemoteConnectionException safeFailure => safeFailure.Message,
-            NotSupportedException => "This connection protocol is not available in this version.",
-            _ => "The connection could not be completed. Check the server settings and try again."
+            OperationCanceledException => "Vm.Status.Canceled",
+            TimeoutException => "Vm.Connect.Timeout",
+            RemoteConnectionException remote => remote.Code switch
+            {
+                RemoteConnectionErrorCode.UnsupportedProtocol => "Vm.Connect.Unsupported",
+                RemoteConnectionErrorCode.InvalidSettings => "Vm.Connect.InvalidSettings",
+                RemoteConnectionErrorCode.AuthenticationFailed => "Vm.Connect.Authentication",
+                RemoteConnectionErrorCode.PrivateKeyInvalid => "Vm.Connect.PrivateKey",
+                RemoteConnectionErrorCode.HostKeyRejected => "Vm.Connect.HostRejected",
+                RemoteConnectionErrorCode.HostKeyChanged => "Vm.Connect.HostChanged",
+                RemoteConnectionErrorCode.HostTrustStorageFailed => "Vm.Connect.TrustStorage",
+                RemoteConnectionErrorCode.CredentialStorageFailed => "Vm.Connect.CredentialStorage",
+                RemoteConnectionErrorCode.NameResolutionFailed => "Vm.Connect.NameResolution",
+                RemoteConnectionErrorCode.ConnectionRefused => "Vm.Connect.Refused",
+                RemoteConnectionErrorCode.Timeout => "Vm.Connect.Timeout",
+                RemoteConnectionErrorCode.ConnectionLost => "Vm.Status.ConnectionLost",
+                _ => "Vm.Connect.Failed"
+            },
+            NotSupportedException => "Vm.Connect.Unsupported",
+            _ => "Vm.Connect.Failed"
         };
-        SetStatus(ConnectionError, exception is OperationCanceledException ? "Info" : "Error");
+        SetConnectionError(new UiMessage(key));
+        SetStatus(_connectionError!, exception is OperationCanceledException ? "Info" : "Error");
     }
 
-    private void ReportFailure(string title, Exception exception)
+    private void ReportFailure(string titleKey, Exception exception)
     {
-        var detail = exception switch
+        var detailKey = exception switch
         {
-            UnauthorizedAccessException => "You do not have permission to access this location.",
-            DirectoryNotFoundException => "The folder was not found. Check the path and try again.",
-            FileNotFoundException => "The file was not found. Refresh the folder and try again.",
-            ArgumentException => "Check the supplied values and try again.",
-            _ => "The operation failed. Check your settings and access permissions, then try again."
+            UnauthorizedAccessException => "Vm.Failure.Permission",
+            DirectoryNotFoundException => "Vm.Failure.Directory",
+            FileNotFoundException => "Vm.Failure.File",
+            ArgumentException => "Vm.Failure.Values",
+            _ => "Vm.Failure.Generic"
         };
-
-        SetStatus($"{title}: {detail}", "Error");
-        _interactions.ShowInformation(title, detail);
+        SetStatus(new UiMessage("Vm.Failure.Composite", new UiMessage(titleKey), new UiMessage(detailKey)), "Error");
+        _interactions.ShowInformation(UiText.Get(titleKey), UiText.Get(detailKey));
     }
 
-    private void SetStatus(string message, string kind)
+    private void SetStatus(string key, string kind, params object?[] arguments)
+        => SetStatus(new UiMessage(key, arguments), kind);
+
+    private void SetStatus(UiMessage message, string kind)
     {
         // A successful folder refresh must not hide a profile-store failure, nor
         // invite a new save that could overwrite profiles the app could not read.
-        StatusMessage = _profileLoadFailure ?? message;
+        _statusMessage = message;
+        OnPropertyChanged(nameof(StatusMessage));
         StatusKind = _profileLoadFailure is null ? kind : "Error";
-        _log?.Invoke(StatusKind, StatusMessage);
+        _log?.Invoke(StatusKind, _profileLoadFailure is null ? message.English : UiText.English(_profileLoadFailure));
     }
 
     private static string GetProtocolLabel(ConnectionProtocol protocol) => protocol switch

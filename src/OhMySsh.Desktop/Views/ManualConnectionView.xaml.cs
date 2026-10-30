@@ -1,3 +1,4 @@
+using OhMySsh.Core.Localization;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -16,8 +17,8 @@ public partial class ManualConnectionView : UserControl
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Selecionar chave privada",
-            Filter = "Todos os arquivos (*.*)|*.*",
+            Title = UiText.Get("Dialog.ChoosePrivateKey"),
+            Filter = UiText.Get("Dialog.AllFiles"),
             CheckFileExists = true,
             Multiselect = false
         };

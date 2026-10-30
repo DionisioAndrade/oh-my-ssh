@@ -7,5 +7,6 @@ public interface IRemoteConnectionSession : IAsyncDisposable
 {
     ConnectionProfile Profile { get; }
     bool IsConnected { get; }
+    IRemoteFileService? Files => null;
     event EventHandler? Disconnected;
 }

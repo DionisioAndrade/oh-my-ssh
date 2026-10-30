@@ -1,3 +1,4 @@
+using OhMySsh.Core.Localization;
 using System.Globalization;
 using System.Net;
 using System.Windows;
@@ -14,6 +15,7 @@ public partial class ConnectionEditorWindow : Window
     private readonly ConnectionProfile? _existing;
     private ConnectionProtocol _previousProtocol = ConnectionProtocol.Ssh;
     private bool _isInitializing = true;
+    private string? _validationKey;
 
     public ConnectionEditorWindow(ConnectionProfile? existing = null)
     {
@@ -22,9 +24,6 @@ public partial class ConnectionEditorWindow : Window
 
         if (existing is not null)
         {
-            Title = "Editar VPS";
-            HeadingText.Text = Title;
-            SaveButton.Content = "Salvar alterações";
             NameTextBox.Text = existing.Name;
             HostTextBox.Text = existing.Host;
             PortTextBox.Text = existing.Port.ToString(CultureInfo.InvariantCulture);
@@ -37,11 +36,24 @@ public partial class ConnectionEditorWindow : Window
         }
 
         ProtocolComboBox.SelectedIndex = (int)(existing?.Protocol ?? ConnectionProtocol.Ssh);
-        UpdateProtocolDescription(GetProtocol());
+        RefreshLocalizedText();
         _isInitializing = false;
+        UiText.Current.LanguageChanged += LanguageChanged;
+        Closed += (_, _) => UiText.Current.LanguageChanged -= LanguageChanged;
     }
 
     public ConnectionProfile? Profile { get; private set; }
+
+    private void LanguageChanged(object? sender, EventArgs e) => RefreshLocalizedText();
+
+    private void RefreshLocalizedText()
+    {
+        Title = UiText.Get(_existing is null ? "Dialog.SaveVps" : "Dialog.EditVps");
+        HeadingText.Text = Title;
+        SaveButton.Content = UiText.Get(_existing is null ? "Dialog.SaveVps" : "Dialog.SaveChanges");
+        UpdateProtocolDescription(GetProtocol());
+        if (_validationKey is not null) ValidationText.Text = UiText.Get(_validationKey);
+    }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
@@ -81,19 +93,20 @@ public partial class ConnectionEditorWindow : Window
     {
         ProtocolDescriptionText.Text = protocol switch
         {
-            ConnectionProtocol.Ssh => "Terminal e arquivos pela mesma conexão SSH.",
-            ConnectionProtocol.Sftp => "Transferência de arquivos pela conexão SSH.",
-            ConnectionProtocol.Ftp => "Transferência pelo protocolo FTP.",
-            ConnectionProtocol.Ftps => "FTP com TLS explícito. A porta padrão é 21.",
+            ConnectionProtocol.Ssh => UiText.Get("Dialog.SshDescription"),
+            ConnectionProtocol.Sftp => UiText.Get("Dialog.SftpDescription"),
+            ConnectionProtocol.Ftp => UiText.Get("Dialog.FtpDescription"),
+            ConnectionProtocol.Ftps => UiText.Get("Dialog.FtpsDescription"),
             _ => string.Empty
         };
         PrivateKeyPanel.Visibility = protocol is ConnectionProtocol.Ssh or ConnectionProtocol.Sftp
             ? Visibility.Visible
             : Visibility.Collapsed;
         var usernameLabel = protocol is ConnectionProtocol.Ssh or ConnectionProtocol.Sftp
-            ? "Usuário SSH"
-            : "Usuário FTP";
-        UsernameLabel.Content = $"_{usernameLabel}";
+            ? UiText.Get("Dialog.SshUsername")
+            : UiText.Get("Dialog.FtpUsername");
+        UsernameLabel.Content = UiText.Get(protocol is ConnectionProtocol.Ssh or ConnectionProtocol.Sftp
+            ? "Dialog.SshUsernameLabel" : "Dialog.FtpUsernameLabel");
         System.Windows.Automation.AutomationProperties.SetName(UsernameTextBox, usernameLabel);
     }
 
@@ -110,8 +123,8 @@ public partial class ConnectionEditorWindow : Window
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Selecionar chave privada",
-            Filter = "Todos os arquivos (*.*)|*.*",
+            Title = UiText.Get("Dialog.ChoosePrivateKey"),
+            Filter = UiText.Get("Dialog.AllFiles"),
             CheckFileExists = true,
             Multiselect = false
         };
@@ -127,6 +140,7 @@ public partial class ConnectionEditorWindow : Window
     private void SaveProfile()
     {
         ValidationPanel.Visibility = Visibility.Collapsed;
+        _validationKey = null;
         var name = NameTextBox.Text.Trim();
         var host = HostTextBox.Text.Trim();
         var username = UsernameTextBox.Text.Trim();
@@ -135,19 +149,19 @@ public partial class ConnectionEditorWindow : Window
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            ShowValidation("Informe um nome para identificar a VPS ou servidor.", NameTextBox);
+            ShowValidation("Dialog.ValidationNameRequired", NameTextBox);
             return;
         }
 
         if (name.Length > 100 || name.Any(char.IsControl))
         {
-            ShowValidation("Use um nome com até 100 caracteres, sem quebras de linha ou caracteres de controle.", NameTextBox);
+            ShowValidation("Dialog.ValidationName", NameTextBox);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(host))
         {
-            ShowValidation("Informe o nome ou endereço IP do servidor.", HostTextBox);
+            ShowValidation("Dialog.ValidationHostRequired", HostTextBox);
             return;
         }
 
@@ -155,7 +169,7 @@ public partial class ConnectionEditorWindow : Window
             host.Contains("://", StringComparison.Ordinal) ||
             host.IndexOfAny(['/', '\\', '?', '#', '@']) >= 0)
         {
-            ShowValidation("Use apenas o nome do servidor ou endereço IP, sem protocolo, usuário ou caminho.", HostTextBox);
+            ShowValidation("Dialog.ValidationHost", HostTextBox);
             return;
         }
 
@@ -167,7 +181,7 @@ public partial class ConnectionEditorWindow : Window
                 !IPAddress.TryParse(host[1..^1], out var bracketedAddress) ||
                 bracketedAddress.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6)
             {
-                ShowValidation("Use colchetes apenas ao redor de um endereço IPv6 válido, sem a porta.", HostTextBox);
+                ShowValidation("Dialog.ValidationIpv6", HostTextBox);
                 return;
             }
 
@@ -177,52 +191,52 @@ public partial class ConnectionEditorWindow : Window
         // IPv6 may contain colons; a hostname followed by a port may not.
         if (normalizedHost.Contains(':') && !IPAddress.TryParse(normalizedHost, out _))
         {
-            ShowValidation("Informe a porta no campo Porta, separada do endereço do servidor.", HostTextBox);
+            ShowValidation("Dialog.ValidationSeparatePort", HostTextBox);
             return;
         }
 
         if (!IPAddress.TryParse(normalizedHost, out _) &&
             Uri.CheckHostName(normalizedHost) != UriHostNameType.Dns)
         {
-            ShowValidation("Informe um endereço IP ou domínio válido, como servidor.exemplo.com.", HostTextBox);
+            ShowValidation("Dialog.ValidationDomain", HostTextBox);
             return;
         }
 
         if (!int.TryParse(PortTextBox.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var port) ||
             port is < 1 or > 65535)
         {
-            ShowValidation("Informe uma porta entre 1 e 65535.", PortTextBox);
+            ShowValidation("Dialog.ValidationPort", PortTextBox);
             return;
         }
 
         if (!int.TryParse(TimeoutTextBox.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var timeout)
             || timeout is < 1 or > 300)
         {
-            ShowValidation("Enter a connection timeout between 1 and 300 seconds.", TimeoutTextBox);
+            ShowValidation("Dialog.ValidationTimeout", TimeoutTextBox);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(username))
         {
-            ShowValidation("Informe o usuário da conexão.", UsernameTextBox);
+            ShowValidation("Dialog.ValidationUsernameRequired", UsernameTextBox);
             return;
         }
 
         if (username.Length > 128 || username.Any(character => char.IsWhiteSpace(character) || char.IsControl(character)))
         {
-            ShowValidation("Use um usuário com até 128 caracteres, sem espaços, quebras de linha ou caracteres de controle.", UsernameTextBox);
+            ShowValidation("Dialog.ValidationUsername", UsernameTextBox);
             return;
         }
 
         if (group.Length > 80 || group.Any(char.IsControl))
         {
-            ShowValidation("Use um grupo com até 80 caracteres, sem quebras de linha ou caracteres de controle.", GroupTextBox);
+            ShowValidation("Dialog.ValidationGroup", GroupTextBox);
             return;
         }
 
         if (keyPath.Any(char.IsControl))
         {
-            ShowValidation("Informe o caminho da chave em uma única linha, sem caracteres de controle.", PrivateKeyTextBox);
+            ShowValidation("Dialog.ValidationKeyPath", PrivateKeyTextBox);
             return;
         }
 
@@ -245,9 +259,10 @@ public partial class ConnectionEditorWindow : Window
         DialogResult = true;
     }
 
-    private void ShowValidation(string message, TextBox field)
+    private void ShowValidation(string key, TextBox field)
     {
-        ValidationText.Text = message;
+        _validationKey = key;
+        ValidationText.Text = UiText.Get(key);
         ValidationPanel.Visibility = Visibility.Visible;
         field.Focus();
         field.SelectAll();

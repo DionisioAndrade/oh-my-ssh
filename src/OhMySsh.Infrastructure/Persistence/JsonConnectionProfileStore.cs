@@ -12,6 +12,8 @@ namespace OhMySsh.Infrastructure.Persistence;
 public sealed class JsonConnectionProfileStore : IConnectionProfileStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
+    private const int MaximumReplacementAttempts = 5;
+    private const int InitialReplacementDelayMilliseconds = 40;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public JsonConnectionProfileStore(string? filePath = null)
@@ -98,7 +100,7 @@ public sealed class JsonConnectionProfileStore : IConnectionProfileStore
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            File.Move(temporaryPath, StoragePath, overwrite: true);
+            await ReplaceFileAsync(temporaryPath, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -119,6 +121,49 @@ public sealed class JsonConnectionProfileStore : IConnectionProfileStore
             }
 
             _gate.Release();
+        }
+    }
+
+    private async Task ReplaceFileAsync(string temporaryPath, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                // Keep the same staged snapshot and atomic replacement throughout contention.
+                File.Move(temporaryPath, StoragePath, overwrite: true);
+                return;
+            }
+            catch (Exception exception) when (IsRetryableReplacementFailure(exception))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (attempt >= MaximumReplacementAttempts - 1 || IsNonReplaceableDestination()) throw;
+                // Windows can deny replacement briefly while another process holds the file.
+                // Real permission failures still propagate once this small retry budget expires.
+                await Task.Delay(InitialReplacementDelayMilliseconds << attempt, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static bool IsRetryableReplacementFailure(Exception exception)
+        => OperatingSystem.IsWindows() && exception is (IOException or UnauthorizedAccessException)
+           && (exception.HResult & 0xffff) is (5 or 32 or 33);
+
+    private bool IsNonReplaceableDestination()
+    {
+        try
+        {
+            return (File.GetAttributes(StoragePath) & (FileAttributes.ReadOnly | FileAttributes.Directory)) != 0;
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Do not retry when even the destination's basic attributes cannot be inspected.
+            return true;
         }
     }
 

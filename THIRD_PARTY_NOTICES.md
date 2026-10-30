@@ -8,6 +8,16 @@ Original filenames: `win11-dashboard.light.png` and `win11-dashboard.dark.png`.
 
 Copyright (c) 2015 Microsoft. MIT License. The full license text is provided in [LICENSE.WPF-Samples.txt](src/OhMySsh.Desktop/Assets/LICENSE.WPF-Samples.txt) and is included in the application output.
 
+## Material Icon Theme — development file icons
+
+The development-file icons are derived from [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme), pinned to revision [`23e86c06d09e92571ef027184c00cad78e8c827f`](https://github.com/material-extensions/vscode-material-icon-theme/tree/23e86c06d09e92571ef027184c00cad78e8c827f).
+
+Copyright (c) 2025 Material Extensions. MIT License. The full, verbatim license is provided in [LICENSE.MaterialIconTheme.txt](src/OhMySsh.Desktop/Assets/LICENSE.MaterialIconTheme.txt) and is copied into the application output.
+
+The original SVG files are retained in `src/OhMySsh.Desktop/Assets/DevelopmentIcons`. Their paths and view boxes are converted to native WPF drawings in `Themes/DevelopmentIcons.Light.xaml` and `Themes/DevelopmentIcons.Dark.xaml`, with color adaptations for readability in each theme. No SVG renderer or additional icon font is shipped.
+
+The selected source icons are `python`, `java`, `csharp`, `markdown`, `javascript`, `typescript`, `html`, `css`, `json`, `xml`, `yaml`, `console`, `powershell`, `database`, `go`, `rust`, `php`, `ruby`, `c`, `cpp`, `visualstudio`, and `docker`. The console icon represents shell files, the database icon represents SQL files, and the Visual Studio icon represents .NET project and solution files.
+
 ## SSH.NET
 
 The SSH transport uses [SSH.NET 2026.0.0](https://www.nuget.org/packages/SSH.NET/2026.0.0), licensed under the MIT License.

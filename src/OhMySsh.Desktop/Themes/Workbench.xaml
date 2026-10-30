@@ -1,5 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:localization="clr-namespace:OhMySsh.Desktop.Localization"
+                    xmlns:text="clr-namespace:OhMySsh.Core.Localization;assembly=OhMySsh.Core"
+                    xmlns:models="clr-namespace:OhMySsh.Core.Models;assembly=OhMySsh.Core">
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.xaml" />
         <ResourceDictionary Source="Colors.Light.xaml" />
@@ -8,7 +11,9 @@
     <FontFamily x:Key="InterfaceFont">Segoe UI Variable Text, Segoe UI</FontFamily>
     <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas</FontFamily>
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+    <localization:CultureToXmlLanguageConverter x:Key="CultureToXmlLanguage" />
     <Style TargetType="Window">
+        <Setter Property="Language" Value="{Binding CultureName, Source={x:Static text:UiText.Current}, Converter={StaticResource CultureToXmlLanguage}, ConverterCulture=en-US, Mode=OneWay}" />
         <Setter Property="FontFamily" Value="{StaticResource InterfaceFont}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -30,6 +35,160 @@
     <Style x:Key="GlyphStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource IconFont}" /><Setter Property="FontSize" Value="18" />
         <Setter Property="VerticalAlignment" Value="Center" /><Setter Property="TextTrimming" Value="None" />
+    </Style>
+    <!-- Both explorers use filename hints; no file contents or Shell metadata are loaded for icons. -->
+    <Style x:Key="SharedFileIconStyle" TargetType="TextBlock" BasedOn="{StaticResource GlyphStyle}">
+        <Setter Property="Text" Value="&#xE7C3;" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Foreground" Value="{DynamicResource FileIconGenericBrush}" />
+        <Setter Property="ToolTip" Value="{Binding TypeLabel}" />
+        <Setter Property="AutomationProperties.Name" Value="{Binding TypeLabel}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Folder}"><Setter Property="Text" Value="&#xE8B7;" /><Setter Property="Foreground" Value="{DynamicResource FileIconFolderBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Code}"><Setter Property="Text" Value="&#xE943;" /><Setter Property="Foreground" Value="{DynamicResource FileIconCodeBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Configuration}"><Setter Property="Text" Value="&#xE713;" /><Setter Property="Foreground" Value="{DynamicResource FileIconConfigurationBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Text}"><Setter Property="Text" Value="&#xE8A5;" /><Setter Property="Foreground" Value="{DynamicResource FileIconTextBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Spreadsheet}"><Setter Property="Text" Value="&#xE9F9;" /><Setter Property="Foreground" Value="{DynamicResource FileIconSpreadsheetBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Presentation}"><Setter Property="Text" Value="&#xE786;" /><Setter Property="Foreground" Value="{DynamicResource FileIconPresentationBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Pdf}"><Setter Property="Text" Value="&#xEA90;" /><Setter Property="Foreground" Value="{DynamicResource FileIconPdfBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Archive}"><Setter Property="Text" Value="&#xF012;" /><Setter Property="Foreground" Value="{DynamicResource FileIconArchiveBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Image}"><Setter Property="Text" Value="&#xE8B9;" /><Setter Property="Foreground" Value="{DynamicResource FileIconImageBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Audio}"><Setter Property="Text" Value="&#xEC4F;" /><Setter Property="Foreground" Value="{DynamicResource FileIconAudioBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Video}"><Setter Property="Text" Value="&#xE714;" /><Setter Property="Foreground" Value="{DynamicResource FileIconVideoBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Executable}"><Setter Property="Text" Value="&#xE71D;" /><Setter Property="Foreground" Value="{DynamicResource FileIconExecutableBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Database}"><Setter Property="Text" Value="&#xEDA2;" /><Setter Property="Foreground" Value="{DynamicResource FileIconDatabaseBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Font}"><Setter Property="Text" Value="&#xE8D2;" /><Setter Property="Foreground" Value="{DynamicResource FileIconFontBrush}" /></DataTrigger>
+            <DataTrigger Binding="{Binding Kind}" Value="{x:Static models:FileKind.Key}"><Setter Property="Text" Value="&#xE8D7;" /><Setter Property="Foreground" Value="{DynamicResource FileIconKeyBrush}" /></DataTrigger>
+        </Style.Triggers>
+    </Style>
+    <DataTemplate x:Key="SharedFileIconTemplate">
+        <Grid Width="20" Height="20">
+            <TextBlock x:Name="CategoryIcon" Style="{StaticResource SharedFileIconStyle}" />
+            <Image x:Name="DevelopmentIcon" Width="18" Height="18" Stretch="Uniform" Visibility="Collapsed"
+                   AutomationProperties.Name="{Binding TypeLabel}" />
+        </Grid>
+        <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Python}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentPythonIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Java}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentJavaIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.CSharp}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentCSharpIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Markdown}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentMarkdownIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.JavaScript}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentJavaScriptIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.TypeScript}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentTypeScriptIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Html}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentHtmlIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Css}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentCssIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Json}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentJsonIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Xml}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentXmlIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Yaml}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentYamlIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Shell}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentShellIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.PowerShell}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentPowerShellIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Sql}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentSqlIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Go}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentGoIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Rust}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentRustIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Php}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentPhpIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Ruby}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentRubyIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.C}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentCIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.CPlusPlus}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentCPlusPlusIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.DotNetProject}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentDotNetProjectIcon}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DevelopmentKind}" Value="{x:Static models:FileDevelopmentKind.Docker}">
+                <Setter TargetName="CategoryIcon" Property="Visibility" Value="Collapsed" />
+                <Setter TargetName="DevelopmentIcon" Property="Visibility" Value="Visible" />
+                <Setter TargetName="DevelopmentIcon" Property="Source" Value="{DynamicResource DevelopmentDockerIcon}" />
+            </DataTrigger>
+        </DataTemplate.Triggers>
+    </DataTemplate>
+    <Style x:Key="SharedFileIconPresenterStyle" TargetType="ContentControl">
+        <Setter Property="Content" Value="{Binding}" />
+        <Setter Property="ContentTemplate" Value="{StaticResource SharedFileIconTemplate}" />
+        <Setter Property="Width" Value="20" /><Setter Property="Height" Value="20" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Focusable" Value="False" /><Setter Property="IsTabStop" Value="False" />
+        <Setter Property="ToolTip" Value="{Binding TypeLabel}" /><Setter Property="AutomationProperties.Name" Value="{Binding TypeLabel}" />
     </Style>
     <Style x:Key="FluentButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Padding" Value="13,7" /><Setter Property="MinHeight" Value="34" />

@@ -1,7 +1,8 @@
 <Window x:Class="OhMySsh.Desktop.Views.ConnectionEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Salvar VPS"
+        xmlns:l="clr-namespace:OhMySsh.Desktop.Localization"
+        Title="{l:Loc Dialog.SaveVps}"
         Width="580" Height="730" MinWidth="520" MinHeight="580"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource AppBackgroundBrush}"
@@ -34,8 +35,8 @@
 
         <Border Padding="24,24,24,20">
             <StackPanel>
-                <TextBlock x:Name="HeadingText" Text="Salvar VPS" FontSize="26" FontWeight="SemiBold" />
-                <TextBlock Text="Guarde o perfil para encontrar e reutilizar o acesso ao servidor."
+                <TextBlock x:Name="HeadingText" Text="{l:Loc Dialog.SaveVps}" FontSize="26" FontWeight="SemiBold" />
+                <TextBlock Text="{l:Loc Dialog.ProfileHint}"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,0"
                            TextWrapping="Wrap" />
             </StackPanel>
@@ -45,10 +46,10 @@
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="16">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="20" KeyboardNavigation.TabNavigation="Continue">
-                <Label Content="_Nome da VPS ou servidor" Target="{Binding ElementName=NameTextBox}"
+                <Label Content="{l:Loc Dialog.NameLabel}" Target="{Binding ElementName=NameTextBox}"
                        Style="{StaticResource FieldLabelStyle}" />
                 <TextBox x:Name="NameTextBox" Style="{StaticResource EditorTextBoxStyle}" MaxLength="100"
-                         ToolTip="Ex.: minha-vps" AutomationProperties.Name="Nome da VPS ou servidor" />
+                         ToolTip="{l:Loc Dialog.NameExample}" AutomationProperties.Name="{l:Loc Dialog.Name}" />
 
                 <Grid Margin="0,20,0,0">
                     <Grid.ColumnDefinitions>
@@ -57,12 +58,12 @@
                         <ColumnDefinition Width="120" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <Label Content="_Protocolo" Target="{Binding ElementName=ProtocolComboBox}"
+                        <Label Content="{l:Loc Dialog.ProtocolLabel}" Target="{Binding ElementName=ProtocolComboBox}"
                                Style="{StaticResource FieldLabelStyle}" />
                         <ComboBox x:Name="ProtocolComboBox" MinHeight="38" FontSize="14" VerticalContentAlignment="Center"
                                   Style="{StaticResource FluentComboBoxStyle}"
                                   SelectionChanged="ProtocolComboBox_SelectionChanged"
-                                  AutomationProperties.Name="Protocolo">
+                                  AutomationProperties.Name="{l:Loc Dialog.Protocol}">
                             <ComboBoxItem Content="SSH + SFTP" Tag="Ssh" />
                             <ComboBoxItem Content="SFTP" Tag="Sftp" />
                             <ComboBoxItem Content="FTP" Tag="Ftp" />
@@ -70,21 +71,21 @@
                         </ComboBox>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
-                        <Label Content="P_orta" Target="{Binding ElementName=PortTextBox}"
+                        <Label Content="{l:Loc Dialog.PortLabel}" Target="{Binding ElementName=PortTextBox}"
                                Style="{StaticResource FieldLabelStyle}" />
                         <TextBox x:Name="PortTextBox" Text="22" Style="{StaticResource EditorTextBoxStyle}"
-                                 MaxLength="5" AutomationProperties.Name="Porta" />
+                                 MaxLength="5" AutomationProperties.Name="{l:Loc Dialog.Port}" />
                     </StackPanel>
                 </Grid>
-                <TextBlock x:Name="ProtocolDescriptionText" Text="Terminal e arquivos pela mesma conexão SSH."
+                <TextBlock x:Name="ProtocolDescriptionText" Text="{l:Loc Dialog.SshDescription}"
                            Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                            Margin="0,8,0,0" TextWrapping="Wrap" />
 
-                <Label Content="_IP ou domínio" Target="{Binding ElementName=HostTextBox}"
+                <Label Content="{l:Loc Dialog.HostLabel}" Target="{Binding ElementName=HostTextBox}"
                        Style="{StaticResource FieldLabelStyle}" Margin="0,20,0,0" />
                 <TextBox x:Name="HostTextBox" Style="{StaticResource EditorTextBoxStyle}" MaxLength="255"
-                         ToolTip="Ex.: 203.0.113.10 ou servidor.exemplo.com. Informe a porta no campo separado."
-                         AutomationProperties.Name="IP ou domínio" />
+                         ToolTip="{l:Loc Dialog.HostExampleWithPort}"
+                         AutomationProperties.Name="{l:Loc Dialog.Host}" />
 
                 <Grid Margin="0,20,0,0">
                     <Grid.ColumnDefinitions>
@@ -93,21 +94,21 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
-                        <Label x:Name="UsernameLabel" Content="_Usuário SSH" Target="{Binding ElementName=UsernameTextBox}"
+                        <Label x:Name="UsernameLabel" Content="{l:Loc Dialog.SshUsernameLabel}" Target="{Binding ElementName=UsernameTextBox}"
                                Style="{StaticResource FieldLabelStyle}" />
                         <TextBox x:Name="UsernameTextBox" Style="{StaticResource EditorTextBoxStyle}"
-                                 MaxLength="128" AutomationProperties.Name="Usuário SSH" />
+                                 MaxLength="128" AutomationProperties.Name="{l:Loc Dialog.SshUsername}" />
                     </StackPanel>
                     <StackPanel Grid.Column="2">
-                        <Label Content="_Grupo" Target="{Binding ElementName=GroupTextBox}"
+                        <Label Content="{l:Loc Dialog.GroupLabel}" Target="{Binding ElementName=GroupTextBox}"
                                Style="{StaticResource FieldLabelStyle}" />
                         <TextBox x:Name="GroupTextBox" Text="VPS" Style="{StaticResource EditorTextBoxStyle}"
-                                 MaxLength="80" AutomationProperties.Name="Grupo" />
+                                 MaxLength="80" AutomationProperties.Name="{l:Loc Dialog.Group}" />
                     </StackPanel>
                 </Grid>
 
                 <StackPanel x:Name="PrivateKeyPanel" Margin="0,20,0,0">
-                    <Label Content="_Chave privada (opcional)" Target="{Binding ElementName=PrivateKeyTextBox}"
+                    <Label Content="{l:Loc Dialog.PrivateKeyLabel}" Target="{Binding ElementName=PrivateKeyTextBox}"
                            Style="{StaticResource FieldLabelStyle}" />
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -116,21 +117,21 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBox x:Name="PrivateKeyTextBox" Style="{StaticResource EditorTextBoxStyle}"
-                                 AutomationProperties.Name="Caminho da chave privada" />
-                        <Button Grid.Column="2" Content="Procurar…" MinHeight="38" Padding="12,0"
+                                 AutomationProperties.Name="{l:Loc Dialog.PrivateKeyPath}" />
+                        <Button Grid.Column="2" Content="{l:Loc Dialog.Browse}" MinHeight="38" Padding="12,0"
                                 Style="{DynamicResource SecondaryButtonStyle}" Click="BrowsePrivateKey_Click" />
                     </Grid>
-                    <TextBlock Text="O perfil guarda apenas o caminho do arquivo de chave."
+                    <TextBlock Text="{l:Loc Dialog.PrivateKeyHint}"
                                Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
 
                 <StackPanel Margin="0,20,0,0">
-                    <Label Content="_Tempo limite da conexão (segundos)" Target="{Binding ElementName=TimeoutTextBox}"
+                    <Label Content="{l:Loc Dialog.TimeoutLabel}" Target="{Binding ElementName=TimeoutTextBox}"
                            Style="{StaticResource FieldLabelStyle}" />
                     <TextBox x:Name="TimeoutTextBox" Text="30" Width="120" HorizontalAlignment="Left" MaxLength="3"
-                             Style="{StaticResource EditorTextBoxStyle}" AutomationProperties.Name="Connection timeout in seconds" />
-                    <TextBlock Text="De 1 a 300 segundos. Inclui autenticação e confirmação da identidade do servidor."
+                             Style="{StaticResource EditorTextBoxStyle}" AutomationProperties.Name="{l:Loc Dialog.Timeout}" />
+                    <TextBlock Text="{l:Loc Dialog.TimeoutHint}"
                                Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
 
@@ -151,12 +152,12 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <CheckBox x:Name="FavoriteCheckBox" Content="Adicionar aos _favoritos" VerticalAlignment="Center"
-                          FontSize="12" Margin="0,0,12,0" AutomationProperties.Name="Adicionar aos favoritos" />
+                <CheckBox x:Name="FavoriteCheckBox" Content="{l:Loc Dialog.FavoriteLabel}" VerticalAlignment="Center"
+                          FontSize="12" Margin="0,0,12,0" AutomationProperties.Name="{l:Loc Dialog.Favorite}" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Cancelar" IsCancel="True" MinWidth="100" MinHeight="38" Margin="0,0,8,0"
+                <Button Content="{l:Loc Dialog.Cancel}" IsCancel="True" MinWidth="100" MinHeight="38" Margin="0,0,8,0"
                         Style="{DynamicResource SecondaryButtonStyle}" />
-                <Button x:Name="SaveButton" Content="Salvar VPS" IsDefault="True" MinWidth="145" MinHeight="38"
+                <Button x:Name="SaveButton" Content="{l:Loc Dialog.SaveVps}" IsDefault="True" MinWidth="145" MinHeight="38"
                         Style="{DynamicResource PrimaryButtonStyle}" Click="Save_Click" />
             </StackPanel>
             </Grid>
