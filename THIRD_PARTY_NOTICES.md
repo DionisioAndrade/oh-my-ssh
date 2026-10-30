@@ -32,6 +32,20 @@ The resolved runtime dependencies also include:
 
 These files are copied to the `Licenses` directory in build and publish output. Upstream license texts are preserved verbatim.
 
+## XTerm.NET
+
+The native interactive terminal uses [XTerm.NET 3.0.0](https://www.nuget.org/packages/XTerm.NET/3.0.0), under the MIT License. The source is [tag 3.0.0](https://github.com/tomlm/XTerm.NET/tree/3.0.0), commit `453ed957885f2e87c777e9b4f0b88a3582065eab`.
+
+Copyright (c) 2025 Tom Laird-McConnell. The verbatim license is provided in [LICENSE.XTerm.NET.txt](src/OhMySsh.Desktop/Assets/LICENSE.XTerm.NET.txt) and is copied into application output. The WPF renderer and SSH adapter are project code; no browser-based terminal, extra icon font, or local-shell runtime is bundled for this feature.
+
+## Fira Code
+
+The terminal bundles the unmodified Regular, Medium, and Bold TTF files from the official [Fira Code 6.2 release](https://github.com/tonsky/FiraCode/releases/tag/6.2), distributed under the SIL Open Font License 1.1. Copyright (c) 2014, The Fira Code Project Authors.
+
+The [verbatim license](src/OhMySsh.Desktop/Assets/LICENSE.FiraCode.txt) is copied into application output. The fonts are embedded as WPF resources and are never installed on Windows. Release archive details and its pinned SHA-256 are recorded in [font provenance](src/OhMySsh.Desktop/Assets/Fonts/README.md). The WPF host performs ligature shaping; no font download is required at runtime.
+
 ## SSH verification fixture
 
 The optional local integration fixture uses [AsyncSSH](https://pypi.org/project/asyncssh/2.24.1/) 2.24.1 and its Python dependencies, installed into a project-local virtual environment. They are test tooling and are not packaged with the desktop application. See the upstream package metadata for their licenses.
+
+The optional real-program terminal fixture additionally uses zstandard 0.25.0 from `requirements-terminal.txt`, plus official MSYS2 packages whose filenames and SHA-256 checksums are pinned in `terminal-runtime-packages.json`. The downloader uses the official MSYS2 repository. Portable Bash, Vim, tmux, socat, coreutils, and their support libraries remain under ignored `.local` output and are never packaged with the application. Their individual upstream license metadata is retained with the downloaded package contents.

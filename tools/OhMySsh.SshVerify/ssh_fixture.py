@@ -7,6 +7,7 @@ import secrets
 import sys
 
 import asyncssh
+from terminal_fixture import ProtocolTerminal, RealTerminal, RoutedTerminal, real_runtime_available
 
 
 async def main():
@@ -24,6 +25,10 @@ async def main():
     rsa_path.write_bytes(rsa_key.export_private_key("pkcs1-pem"))
     connections = set()
     stalled_writers = set()
+    terminal_sessions = set()
+    real_terminal_sessions = set()
+    runtime = sys.argv[2] if len(sys.argv) > 2 else ""
+    (directory / "vim-fixture.txt").write_text("VIM_FIXTURE_INITIAL\n", encoding="utf-8")
     host_key = asyncssh.generate_private_key("ssh-ed25519")
     initial_host_key = host_key
     sftp_root = directory / "sftp-root"
@@ -66,6 +71,14 @@ async def main():
             return super().posix_rename(oldpath, newpath)
 
     class Server(asyncssh.SSHServer):
+        def __init__(self, enable_sftp=True, real_terminal=False):
+            self.enable_sftp = enable_sftp
+            self.real_terminal = real_terminal
+
+        def session_requested(self):
+            terminal = RealTerminal(real_terminal_sessions, runtime, directory) if self.real_terminal else ProtocolTerminal(terminal_sessions)
+            return RoutedTerminal(terminal, SFTP if self.enable_sftp else None)
+
         def connection_made(self, connection):
             self.connection = connection
             connections.add(connection)
@@ -90,12 +103,12 @@ async def main():
         def validate_public_key(self, username, supplied):
             return username == "qa" and supplied in (client_key.convert_to_public(), rsa_key.convert_to_public())
 
-    async def start_server(port, key, enable_sftp=True):
+    async def start_server(port, key, enable_sftp=True, real_terminal=False):
         return await asyncssh.create_server(
-            Server, "127.0.0.1", port, server_host_keys=[key],
+            lambda: Server(enable_sftp, real_terminal), "127.0.0.1", port, server_host_keys=[key],
             password_auth=True, public_key_auth=True, kbdint_auth=False,
             login_timeout=40, reuse_address=True,
-            sftp_factory=SFTP if enable_sftp else None,
+            encoding=None, line_editor=False,
         )
 
     async def stall(reader, writer):
@@ -111,6 +124,7 @@ async def main():
     retired_servers = []
     port = server.get_port()
     no_sftp_server = await start_server(0, host_key, enable_sftp=False)
+    real_server = await start_server(0, host_key, enable_sftp=False, real_terminal=True) if real_runtime_available(runtime) else None
     stall_server = await asyncio.start_server(stall, "127.0.0.1", 0)
     stall_port = stall_server.sockets[0].getsockname()[1]
 
@@ -121,7 +135,8 @@ async def main():
              "Passphrase": passphrase, "PlainKeyPath": str(plain_path),
              "EncryptedKeyPath": str(encrypted_path),
              "RsaKeyPath": str(rsa_path),
-             "Fingerprint": host_key.get_fingerprint("sha256")})
+             "Fingerprint": host_key.get_fingerprint("sha256"),
+             "RealTerminalPort": real_server.get_port() if real_server else 0})
     try:
         while True:
             line = await asyncio.to_thread(sys.stdin.readline)
@@ -163,7 +178,8 @@ async def main():
                 server = await start_server(port, host_key)
                 respond({"Fingerprint": host_key.get_fingerprint("sha256")})
             elif command == "stats":
-                respond({"Connections": len(connections), "Stalled": len(stalled_writers)})
+                respond({"Connections": len(connections), "Stalled": len(stalled_writers),
+                         "TerminalSessions": len(terminal_sessions), "RealTerminalSessions": len(real_terminal_sessions)})
             else:
                 respond({"Error": "Unknown fixture command"})
     finally:
@@ -174,11 +190,15 @@ async def main():
         server.close()
         no_sftp_server.close()
         stall_server.close()
+        if real_server:
+            real_server.close()
         await server.wait_closed()
         for retired_server in retired_servers:
             await retired_server.wait_closed()
         await no_sftp_server.wait_closed()
         await stall_server.wait_closed()
+        if real_server:
+            await real_server.wait_closed()
         plain_path.unlink(missing_ok=True)
         encrypted_path.unlink(missing_ok=True)
         rsa_path.unlink(missing_ok=True)

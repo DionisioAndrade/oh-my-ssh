@@ -98,6 +98,7 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("XAML: shared resources", () =>
         {
             LocalizationService.Current.Initialize(application, Path.Combine(outputDirectory, "preferences", "settings.json"));
+            TerminalPreferencesService.Current.Initialize(Path.Combine(outputDirectory, "preferences", "terminal-settings.json"));
             application.Resources.MergedDictionaries.Add(new ResourceDictionary
             {
                 Source = new Uri("pack://application:,,,/OhMySsh;component/Themes/Workbench.xaml")
@@ -140,6 +141,17 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("SFTP queue: serial work, progress, cancellation, and profile isolation", VerifyTransferQueueAsync);
         await CheckAsync("SFTP overwrite: rejection and pending-prompt cancellation", VerifyTransferOverwriteAsync);
         await CheckAsync("SFTP lifecycle: disconnect cancels work and clears remote state", VerifyTransferDisconnectionAsync);
+        await CheckAsync("Terminal engine: fragmented VT state, Unicode, colors, input modes, selection, and bounded history", VerifyTerminalEmulatorAsync);
+        await CheckAsync("Terminal output: sustained volume, detached snapshots, and bounded retained memory", VerifyTerminalVolumeAsync);
+        await CheckAsync("Terminal control: native routed input, focus escape, minimum layouts, live languages, and themes", VerifyTerminalSurfaceAsync);
+        await CheckAsync("Terminal lifecycle: captured sessions, stale opens, explicit retry, resize coalescing, and sanitized failures", VerifyTerminalControllerAsync);
+        await CheckAsync("Terminal workspace: shared shell, page and docked viewports, minimum layouts, languages, and themes", VerifyTerminalWorkspaceAsync);
+        await CheckAsync("Terminal tabs: names, independent channels, limits, and individual closure", VerifyTerminalTabsAsync);
+        await CheckAsync("Terminal tab retirement: pending opens, replacement sessions, and shutdown", VerifyTerminalTabRetirementAsync);
+        await CheckAsync("Terminal controls: saved zoom, scrollback, new output, native tab actions, languages, and themes", VerifyTerminalControlsAsync);
+        await CheckAsync("Terminal appearance: bundled ligatures, exact cell geometry, live palettes, and scrollback state", VerifyTerminalRenderingPreferencesAsync);
+        await CheckAsync("Terminal preferences: atomic storage, concurrent zoom, validation, and bundled fonts", VerifyTerminalPreferencesPersistenceAsync);
+        await CheckAsync("Terminal preferences editor: drafts, save/cancel, languages, themes, and minimum layouts", VerifyTerminalPreferencesEditorAsync);
         await CheckAsync("Transfer metrics: monotonic speed, remaining time, stalls, and terminal states", VerifyTransferMetricsAsync);
         await CheckAsync("Transfer queue controls: pause, resume, cancel all, and clear completed", VerifyTransferQueueControlsAsync);
         await CheckAsync("Transfer retry: captured targets, confirmation, reconnection, and source failures", VerifyTransferRetryAsync);
@@ -1269,6 +1281,7 @@ internal sealed class QaRemoteConnectionSession(ConnectionProfile profile, bool 
 
     public ConnectionProfile Profile { get; } = profile;
     public IRemoteFileService? Files { get; init; }
+    public IRemoteShellService? Shells { get; init; }
     public bool IsConnected => Volatile.Read(ref _isConnected) == 1;
     public int DisposeCalls => Volatile.Read(ref _disposeCalls);
     public Task Disposed => _disposed.Task;

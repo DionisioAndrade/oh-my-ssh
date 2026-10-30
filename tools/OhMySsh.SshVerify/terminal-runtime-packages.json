@@ -1,0 +1,82 @@
+[
+  {
+    "name": "bash",
+    "file": "bash-5.3.20-2-x86_64.pkg.tar.zst",
+    "sha256": "0951e809c552dd7dd2835df1b2d590822187f14e717d809e942e4eb677d0adfd"
+  },
+  {
+    "name": "tmux",
+    "file": "tmux-3.8-1-x86_64.pkg.tar.zst",
+    "sha256": "8ccd83d29f0f29aa5ed283f00c4770e55731a0f36e488ed05d7a5226034c2560"
+  },
+  {
+    "name": "libevent",
+    "file": "libevent-2.1.13-1-x86_64.pkg.tar.zst",
+    "sha256": "ce967e0bbeb4cf396a42e6cd7516b6bbcef23237bf0a55099adbdfe1e9b3fce3"
+  },
+  {
+    "name": "openssl",
+    "file": "openssl-3.6.5-1-x86_64.pkg.tar.zst",
+    "sha256": "4dc7c1199010b26d6382c59d8b16a9dbc857d314d76d9668f0f333bc5fecdd38"
+  },
+  {
+    "name": "libopenssl",
+    "file": "libopenssl-3.6.5-1-x86_64.pkg.tar.zst",
+    "sha256": "05f6cc946f0dde3aecc3632007fa1d874e40720226117b750327bc2a01846325"
+  },
+  {
+    "name": "ncurses",
+    "file": "ncurses-6.6-2-x86_64.pkg.tar.zst",
+    "sha256": "828c92f09b17f00d3b49362fcfa4affa58e5e50e238f290ea36eb7a690da3acb"
+  },
+  {
+    "name": "gcc-libs",
+    "file": "gcc-libs-16.2.0-1-x86_64.pkg.tar.zst",
+    "sha256": "50e1bbbb1b4186ba1ed8c08cdbb5c0a8c2343e4b5747bace24273e26fb148471"
+  },
+  {
+    "name": "vim",
+    "file": "vim-9.2.1252-1-x86_64.pkg.tar.zst",
+    "sha256": "f4856612388f8932045ddd02cb6911148fcc13f5606513c4da19adc2224f3988"
+  },
+  {
+    "name": "libiconv",
+    "file": "libiconv-1.19-1-x86_64.pkg.tar.zst",
+    "sha256": "0fa55ea2a6ccf97cf8c58b24b2615815e15e16e6e4e888091c263c2c83c5313d"
+  },
+  {
+    "name": "libintl",
+    "file": "libintl-0.22.5-1-x86_64.pkg.tar.zst",
+    "sha256": "336d66b9d95cf9c1804958f8e260762a3e83bf158ed5981f783bc772a31073cf"
+  },
+  {
+    "name": "libxcrypt",
+    "file": "libxcrypt-4.5.2-1-x86_64.pkg.tar.zst",
+    "sha256": "e63db0aa2b708359e25f61f506e2d2c92c315febf5f88cc9f386e4ec0bdf4fa5"
+  },
+  {
+    "name": "msys2-runtime",
+    "file": "msys2-runtime-3.6.11-7-x86_64.pkg.tar.zst",
+    "sha256": "01e768d169bced6e6f6fb5aa3529de032c0975f2ab18658a49d3f9a951a49e10"
+  },
+  {
+    "name": "socat",
+    "file": "socat-1.8.1.3-1-x86_64.pkg.tar.zst",
+    "sha256": "ad145b4dfc669c9833601dd277bad550f64f469eed01d9fdea048f6f9a361190"
+  },
+  {
+    "name": "libreadline",
+    "file": "libreadline-8.3.006-1-x86_64.pkg.tar.zst",
+    "sha256": "29e25c50bf6cd7a5e6f2253af76f54fe3c1a915313c7c18e98bedaa665c6adea"
+  },
+  {
+    "name": "coreutils",
+    "file": "coreutils-8.32-5-x86_64.pkg.tar.zst",
+    "sha256": "62dfee1c39fd15f99c39802b35e82643bc14fffc16d6c76d4001caa385ec77e3"
+  },
+  {
+    "name": "gmp",
+    "file": "gmp-6.3.0-2-x86_64.pkg.tar.zst",
+    "sha256": "f84536138e618d47a1df2da83916cfebbd449f159ffad52f994a71060a41cf34"
+  }
+]

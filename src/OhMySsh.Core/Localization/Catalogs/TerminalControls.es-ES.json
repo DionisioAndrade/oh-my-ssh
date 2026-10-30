@@ -1,0 +1,18 @@
+{
+  "TerminalControls.ZoomIn": "Aumentar fuente",
+  "TerminalControls.ZoomOut": "Reducir fuente",
+  "TerminalControls.ResetZoom": "Restaurar tamaño de fuente predeterminado (13)",
+  "TerminalControls.Customize": "Personalizar terminal",
+  "TerminalControls.History": "Historial del terminal",
+  "TerminalControls.BackToEnd": "Volver al final",
+  "TerminalControls.NewOutput": "Nueva salida",
+  "TerminalControls.Dismiss": "Descartar aviso",
+  "TerminalControls.SaveError": "No se pudo guardar la preferencia del terminal. Comprueba el acceso a la carpeta e inténtalo de nuevo.",
+  "TerminalControls.Tabs": "Pestañas del terminal",
+  "TerminalControls.NewTab": "Abrir nuevo terminal",
+  "TerminalControls.CloseTab": "Cerrar esta pestaña del terminal",
+  "TerminalControls.RenameTab": "Renombrar pestaña del terminal",
+  "TerminalControls.TabName": "Nombre de la pestaña",
+  "TerminalControls.SettingsTitle": "Apariencia del terminal",
+  "TerminalControls.SettingsDescription": "Elige fuentes, ligaduras, colores, cursor, espaciado e historial. Las preferencias se aplican a todas las pestañas y quedan guardadas."
+}

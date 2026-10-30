@@ -13,6 +13,7 @@ internal sealed class SshRemoteConnectionSession : IRemoteConnectionSession
     private readonly PrivateKeyFile? _privateKey;
     private readonly EventHandler<HostKeyEventArgs> _hostKeyHandler;
     private readonly SftpRemoteFileService _files;
+    private readonly SshRemoteShellService _shells;
     private readonly CancellationTokenSource _monitorCancellation = new();
     private readonly object _disposeGate = new();
     private readonly Task _monitorTask;
@@ -31,12 +32,14 @@ internal sealed class SshRemoteConnectionSession : IRemoteConnectionSession
         _files = new SftpRemoteFileService(profile,
             token => SshRemoteConnectionService.CreateFileConnectionInfo(profile, authentication, privateKey, token),
             fingerprint, () => IsConnected);
+        _shells = new SshRemoteShellService(client, () => IsConnected);
         _client.ErrorOccurred += OnError;
         _monitorTask = MonitorAsync();
     }
 
     public ConnectionProfile Profile { get; }
     public IRemoteFileService Files => _files;
+    public IRemoteShellService Shells => _shells;
     public event EventHandler? Disconnected;
 
     public bool IsConnected
@@ -64,11 +67,21 @@ internal sealed class SshRemoteConnectionSession : IRemoteConnectionSession
                 _client.HostKeyReceived -= _hostKeyHandler;
                 _monitorCancellation.Cancel();
                 _files.CancelPendingOperations();
+                var shellCleanup = _shells.DisposeAsync().AsTask();
                 _disposeTask = Task.Run(async () =>
                 {
                     try
                     {
-                        try { await _monitorTask.ConfigureAwait(false); }
+                        // Disconnect unblocks a pending synchronous PTY handshake without disposing
+                        // resources that its worker can still be using. Authentication stays alive
+                        // until both owned channels/transports have finished their cleanup.
+                        try { _client.Disconnect(); }
+                        catch (Exception exception) when (exception is not OutOfMemoryException) { }
+                        try
+                        {
+                            try { await _monitorTask.ConfigureAwait(false); }
+                            finally { await shellCleanup.ConfigureAwait(false); }
+                        }
                         finally { await _files.DisposeAsync().ConfigureAwait(false); }
                     }
                     finally
@@ -107,6 +120,7 @@ internal sealed class SshRemoteConnectionSession : IRemoteConnectionSession
         if (Volatile.Read(ref _disposed) == 0 && Interlocked.Exchange(ref _connectionLost, 1) == 0)
         {
             _files.CancelPendingOperations();
+            _shells.CancelPendingOperations();
             Disconnected?.Invoke(this, EventArgs.Empty);
         }
     }

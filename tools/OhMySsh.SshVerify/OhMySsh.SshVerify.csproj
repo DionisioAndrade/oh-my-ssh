@@ -2,11 +2,15 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
     <AssemblyName>OhMySsh.SshVerify</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Using Include="System.IO" />
     <ProjectReference Include="..\..\src\OhMySsh.Infrastructure\OhMySsh.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\OhMySsh.Desktop\OhMySsh.Desktop.csproj" />
     <None Include="ssh_fixture.py" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="terminal_fixture.py" CopyToOutputDirectory="PreserveNewest" />
     <None Include="requirements.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

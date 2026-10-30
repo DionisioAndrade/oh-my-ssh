@@ -68,6 +68,11 @@ public sealed partial class MainViewModel : ObservableObject
         _interactions = interactions;
         _remoteConnections = remoteConnections ?? new UnavailableRemoteConnectionService();
         _log = log;
+        TerminalWorkspace = new TerminalWorkspaceViewModel(log, _dispatcher);
+        TerminalWorkspace.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(TerminalWorkspaceViewModel.SelectedTerminal) or "") OnPropertyChanged(nameof(Terminal));
+        };
         _localPath = GetInitialLocalPath();
         _loadedLocalPath = _localPath;
 
@@ -107,6 +112,8 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<ConnectionProfile> Connections { get; } = [];
+    public TerminalWorkspaceViewModel TerminalWorkspace { get; }
+    public TerminalSessionViewModel Terminal => TerminalWorkspace.SelectedTerminal;
     public ICollectionView FilteredConnections { get; }
     public ObservableCollection<FileEntry> LocalEntries => _localEntries;
 
@@ -249,7 +256,6 @@ public sealed partial class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedConnectionEndpoint));
             OnPropertyChanged(nameof(SelectedProtocolLabel));
             OnPropertyChanged(nameof(SessionSummary));
-            OnPropertyChanged(nameof(TerminalMessage));
             OnPropertyChanged(nameof(RemoteHint));
             RefreshCommandStates();
         }
@@ -331,11 +337,6 @@ public sealed partial class MainViewModel : ObservableObject
     public string SessionSummary => (ActiveConnection ?? SelectedConnection) is { } profile
         ? UiText.Format("Vm.SessionSummary", GetProtocolLabel(profile.Protocol), GetEndpoint(profile), UiText.Get(HasActiveSession ? "Vm.Connected" : "Vm.Disconnected"))
         : UiText.Get("Vm.SessionWelcome");
-    public string TerminalMessage => ActiveConnection is { } active
-        ? UiText.Format("Vm.TerminalConnected", active.Name, GetEndpoint(active))
-        : SelectedConnection is { } profile
-            ? UiText.Format("Vm.TerminalSelected", profile.Name, GetEndpoint(profile))
-            : UiText.Get("Vm.TerminalWelcome");
     public string RemoteHint => (ActiveConnection ?? SelectedConnection) is { } profile
         ? UiText.Format("Vm.RemoteHint", profile.Host, GetProtocolLabel(profile.Protocol))
         : UiText.Get("Vm.RemoteHintWelcome");
@@ -751,6 +752,8 @@ public sealed partial class MainViewModel : ObservableObject
         }
         await remoteCleanup;
 
+        await TerminalWorkspace.DisposeAsync();
+
         // A canceled SSH.NET handshake can outlive the visible attempt. Keep
         // the dispatcher and process alive until the adapter retires its workers.
         var transportShutdown = _remoteConnections.ShutdownAsync();
@@ -820,7 +823,6 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedConnectionEndpoint));
         OnPropertyChanged(nameof(SelectedProtocolLabel));
         OnPropertyChanged(nameof(SessionSummary));
-        OnPropertyChanged(nameof(TerminalMessage));
         OnPropertyChanged(nameof(RemoteHint));
     }
 

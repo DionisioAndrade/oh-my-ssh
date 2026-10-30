@@ -69,9 +69,9 @@ Missing or unreadable files, malformed keys, and incorrect passphrases produce a
 
 ## Logs and limitations
 
-Application-generated connection events, errors, and diagnostics use English. Diagnostic messages avoid raw transport exception details and authentication secrets. Existing product navigation labels may remain in Portuguese.
+Application-generated connection events, errors, and diagnostics use English. Diagnostic messages avoid raw transport exception details, authentication secrets, and terminal contents. The interface supports English, Brazilian Portuguese, and Spanish.
 
-Only one active VPS session is supported. SSH/SFTP profiles establish SSH transport and can use [SFTP browsing and transfers](sftp-transfers.md) when the server provides that subsystem. A VT/ANSI terminal is a later task. FTP/FTPS profiles remain unsupported by this adapter.
+Only one active VPS session is supported. SSH/SFTP profiles establish SSH transport and can use [SFTP browsing and transfers](sftp-transfers.md) when the server provides that subsystem, plus the [interactive VT/ANSI terminal](terminal.md) through a remote PTY. FTP/FTPS profiles remain unsupported by this adapter.
 
 ## Verify locally
 

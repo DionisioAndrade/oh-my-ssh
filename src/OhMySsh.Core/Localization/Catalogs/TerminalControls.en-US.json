@@ -1,0 +1,18 @@
+{
+  "TerminalControls.ZoomIn": "Increase font size",
+  "TerminalControls.ZoomOut": "Decrease font size",
+  "TerminalControls.ResetZoom": "Restore default font size (13)",
+  "TerminalControls.Customize": "Customize terminal",
+  "TerminalControls.History": "Terminal scrollback",
+  "TerminalControls.BackToEnd": "Back to bottom",
+  "TerminalControls.NewOutput": "New output",
+  "TerminalControls.Dismiss": "Dismiss notice",
+  "TerminalControls.SaveError": "The terminal preference could not be saved. Check folder access and try again.",
+  "TerminalControls.Tabs": "Terminal tabs",
+  "TerminalControls.NewTab": "Open a new terminal",
+  "TerminalControls.CloseTab": "Close this terminal tab",
+  "TerminalControls.RenameTab": "Rename terminal tab",
+  "TerminalControls.TabName": "Tab name",
+  "TerminalControls.SettingsTitle": "Terminal appearance",
+  "TerminalControls.SettingsDescription": "Choose fonts, ligatures, colors, cursor, spacing, and scrollback. Preferences apply to all terminal tabs and remain saved."
+}

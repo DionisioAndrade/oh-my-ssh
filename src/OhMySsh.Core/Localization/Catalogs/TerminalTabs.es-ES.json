@@ -1,0 +1,8 @@
+{
+  "TerminalTabs.DefaultName": "Terminal {0}",
+  "TerminalTabs.New": "Nuevo terminal",
+  "TerminalTabs.Close": "Cerrar pestaña del terminal",
+  "TerminalTabs.Rename": "Cambiar nombre del terminal",
+  "TerminalTabs.Limit": "Se pueden abrir hasta 8 pestañas de terminal. Cierra una para abrir otra.",
+  "TerminalTabs.Failed": "No se pudo abrir el terminal. Comprueba su estado e inténtalo de nuevo."
+}

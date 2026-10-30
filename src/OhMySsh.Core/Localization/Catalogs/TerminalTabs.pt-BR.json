@@ -1,0 +1,8 @@
+{
+  "TerminalTabs.DefaultName": "Terminal {0}",
+  "TerminalTabs.New": "Novo terminal",
+  "TerminalTabs.Close": "Fechar aba do terminal",
+  "TerminalTabs.Rename": "Renomear terminal",
+  "TerminalTabs.Limit": "É possível abrir até 8 abas de terminal. Feche uma aba para abrir outra.",
+  "TerminalTabs.Failed": "Não foi possível abrir o terminal. Verifique seu estado e tente novamente."
+}

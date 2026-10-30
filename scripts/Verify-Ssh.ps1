@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string] $PythonPath = '',
-    [switch] $InstallFixtureDependencies
+    [switch] $InstallFixtureDependencies,
+    [switch] $InstallTerminalFixture,
+    [switch] $TerminalOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +21,7 @@ if ([string]::IsNullOrWhiteSpace($PythonPath)) {
 
 Push-Location $workspacePath
 try {
-    if ($InstallFixtureDependencies) {
+    if ($InstallFixtureDependencies -or $InstallTerminalFixture) {
         if (-not (Test-Path -LiteralPath $PythonPath)) {
             python -m venv .local\ssh-integration-venv
             if ($LASTEXITCODE -ne 0) { throw 'Could not create the isolated Python fixture environment.' }
@@ -27,14 +29,22 @@ try {
         & $PythonPath -m pip install --disable-pip-version-check -r tools/OhMySsh.SshVerify/requirements.txt
         if ($LASTEXITCODE -ne 0) { throw 'Could not install the test-only SSH fixture dependencies.' }
     }
+    if ($InstallTerminalFixture) {
+        & $PythonPath -m pip install --disable-pip-version-check -r tools/OhMySsh.SshVerify/requirements-terminal.txt
+        if ($LASTEXITCODE -ne 0) { throw 'Could not install the optional real-program terminal fixture dependencies.' }
+        & $PythonPath tools/OhMySsh.SshVerify/prepare_terminal_runtime.py
+        if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the isolated Vim and tmux test runtime.' }
+    }
     if (-not (Test-Path -LiteralPath $PythonPath)) {
         throw 'The SSH fixture requires Python 3.10+ and AsyncSSH. Run this script with -InstallFixtureDependencies first, or provide -PythonPath.'
     }
     & $PythonPath -c 'import asyncssh, bcrypt'
     if ($LASTEXITCODE -ne 0) { throw 'The selected Python environment is missing the SSH fixture dependencies.' }
-    dotnet build tools/OhMySsh.SshVerify/OhMySsh.SshVerify.csproj --verbosity minimal -m:1 -nr:false /p:UseSharedCompilation=false
+    dotnet build tools/OhMySsh.SshVerify/OhMySsh.SshVerify.csproj --artifacts-path .local/terminal-integration-build --verbosity minimal -m:1 -nr:false /p:UseSharedCompilation=false
     if ($LASTEXITCODE -ne 0) { throw 'Could not build the SSH integration verifier.' }
-    dotnet tools/OhMySsh.SshVerify/bin/Debug/net10.0-windows/OhMySsh.SshVerify.dll $PythonPath
+    $verificationArguments = @($PythonPath)
+    if ($TerminalOnly) { $verificationArguments += '--terminal-only' }
+    dotnet .local/terminal-integration-build/bin/OhMySsh.SshVerify/debug/OhMySsh.SshVerify.dll @verificationArguments
     if ($LASTEXITCODE -ne 0) { throw 'SSH integration verification failed. See the generated report.' }
 }
 finally {

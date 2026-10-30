@@ -1,0 +1,39 @@
+<UserControl x:Class="OhMySsh.Desktop.Views.TerminalWorkspaceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:OhMySsh.Desktop.Localization"
+             xmlns:views="clr-namespace:OhMySsh.Desktop.Views" DataContextChanged="Workspace_DataContextChanged">
+    <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Background="{DynamicResource SubtleBrush}" Padding="6,3">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <ListBox x:Name="TerminalTabList" ItemsSource="{Binding Terminals}" SelectedItem="{Binding SelectedTerminal, Mode=TwoWay}" BorderThickness="0" Background="Transparent" Padding="0" MinHeight="30" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled" AutomationProperties.Name="{l:Loc TerminalControls.Tabs}">
+                    <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                            <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,4,0" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="VerticalContentAlignment" Value="Center" />
+                            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="TabBorder" Background="Transparent" CornerRadius="5,5,0,0" BorderBrush="Transparent" BorderThickness="0,0,0,2"><ContentPresenter Margin="9,4,4,3" /></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource SurfaceBrush}" /><Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" /></Trigger><Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid MinWidth="102" MaxWidth="196">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Ellipse Width="5" Height="5" Margin="0,0,7,0" VerticalAlignment="Center"><Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Fill" Value="{DynamicResource TextSecondaryBrush}" /><Style.Triggers><DataTrigger Binding="{Binding IsOpen}" Value="True"><Setter Property="Fill" Value="{DynamicResource SuccessBrush}" /></DataTrigger><DataTrigger Binding="{Binding IsOpening}" Value="True"><Setter Property="Fill" Value="{DynamicResource AccentBrush}" /></DataTrigger></Style.Triggers></Style></Ellipse.Style></Ellipse>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" ToolTip="{Binding Name}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MouseLeftButtonDown="TabName_MouseLeftButtonDown" Margin="0,0,8,0">
+                                    <TextBlock.ContextMenu><ContextMenu><MenuItem Header="{l:Loc TerminalControls.RenameTab}" Click="RenameTab_Click" /></ContextMenu></TextBlock.ContextMenu>
+                                </TextBlock>
+                                <Button Grid.Column="2" x:Name="CloseTabButton" Command="{Binding DataContext.CloseTerminalCommand, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}}" CommandParameter="{Binding}" Style="{StaticResource IconButtonStyle}" Width="22" Height="22" ToolTip="{l:Loc TerminalControls.CloseTab}" AutomationProperties.Name="{l:Loc TerminalControls.CloseTab}"><TextBlock Text="&#xE711;" Style="{StaticResource GlyphStyle}" FontSize="9" /></Button>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button x:Name="NewTerminalButton" Grid.Column="1" Command="{Binding NewTerminalCommand}" Style="{StaticResource IconButtonStyle}" Width="30" Height="30" Margin="4,0,0,0" ToolTip="{l:Loc TerminalControls.NewTab}" AutomationProperties.Name="{l:Loc TerminalControls.NewTab}"><TextBlock Text="&#xE710;" Style="{StaticResource GlyphStyle}" FontSize="12" /></Button>
+            </Grid>
+        </Border>
+        <Border Grid.Row="1" Background="{DynamicResource SubtleBrush}" Padding="10,5" Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"><TextBlock Text="{Binding Error}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" FontSize="11" AutomationProperties.LiveSetting="Polite" /></Border>
+        <views:TerminalView Grid.Row="2" DataContext="{Binding SelectedTerminal}" />
+    </Grid>
+</UserControl>
