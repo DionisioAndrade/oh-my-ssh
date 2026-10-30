@@ -7,6 +7,7 @@ using OhMySsh.Core.Models;
 using OhMySsh.Core.Localization;
 using OhMySsh.Desktop.Services;
 using OhMySsh.Desktop.ViewModels;
+using OhMySsh.Desktop.Terminal;
 
 namespace OhMySsh.Desktop;
 
@@ -332,6 +333,7 @@ public partial class MainWindow : Window
 
     private void HandleWindowShortcuts(object sender, KeyEventArgs e)
     {
+        if (Keyboard.FocusedElement is TerminalSurface) return;
         if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)
         {
             FocusSearch_Click(sender, e);

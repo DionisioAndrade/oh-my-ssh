@@ -53,8 +53,14 @@ Local and remote files have distinct icons and colors by file category, with a g
 
 Development files use dedicated icons for Python, Java, C#, Markdown, JavaScript, TypeScript, and other supported languages and tools. The bundled vector icons adapt to both themes and work offline; see [third-party notices](THIRD_PARTY_NOTICES.md) for attribution.
 
-The file workspace gives transfers a resizable lower panel with an expand button. File names and progress receive flexible width, while speed and remaining time share a compact column. Activity and the terminal preview are available in adjacent tabs.
+The file workspace gives transfers a resizable lower panel with an expand button. File names and progress receive flexible width, while speed and remaining time share a compact column. Activity and the interactive terminal are available in adjacent tabs.
 
 Transfers use temporary files and safe finalization to preserve existing destinations on failure or cancellation. Replacements require confirmation; upload replacement also requires the server's atomic rename support. See [SFTP transfers](docs/sftp-transfers.md) for behavior, cancellation limits, and verification.
 
-One VPS session is supported at a time. An interactive terminal, FTP/FTPS, persistent transfer history, recursive transfers, and automations are subsequent milestones.
+## Interactive terminal
+
+Open a native WPF terminal on the authenticated VPS with a remote `xterm-256color` PTY. The terminal renders VT/ANSI state, including full-screen applications, alternate screens, cursor movement, UTF-8, wide characters, 256 colors, and true color. A bounded scrollback, selection, copy/paste, bracketed paste, and coalesced remote resizing support interactive work with Vim and tmux.
+
+Shells open and reopen only through an explicit action. Closing or disconnecting clears the terminal and releases its channel; previous input is never replayed. See [terminal behavior and verification](docs/terminal.md) for keyboard shortcuts, limits, engine selection, and controlled tests using real Vim and tmux.
+
+One VPS session is supported at a time. FTP/FTPS, persistent transfer history, recursive transfers, and automations are subsequent milestones.

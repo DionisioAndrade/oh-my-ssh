@@ -1,0 +1,2 @@
+# Optional real-program terminal fixture only; never packaged with the application.
+zstandard==0.25.0

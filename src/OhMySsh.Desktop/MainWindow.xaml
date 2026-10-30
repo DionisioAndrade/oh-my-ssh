@@ -408,18 +408,7 @@
                                 <TabItem.Header>
                                     <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="{l:Loc Shell.Terminal}" FontSize="12" /></StackPanel>
                                 </TabItem.Header>
-                                <Border Background="{DynamicResource TerminalBrush}" Padding="19,15">
-                                    <Grid>
-                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                                        <DockPanel Margin="0,0,0,13">
-                                            <TextBlock Text="{l:Loc Shell.SshSession}" Foreground="#8193AC" FontSize="9" FontWeight="SemiBold" />
-                                            <TextBlock Text="{l:Loc Shell.TerminalUnavailable}" Foreground="#7D8EA4" FontSize="10" HorizontalAlignment="Right" />
-                                        </DockPanel>
-                                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                            <TextBlock Text="{Binding TerminalMessage}" FontFamily="{StaticResource MonoFont}" FontSize="11" Foreground="#B5C5D9" TextWrapping="Wrap" LineHeight="18" />
-                                        </ScrollViewer>
-                                    </Grid>
-                                </Border>
+                                <views:TerminalView DataContext="{Binding Terminal}" />
                             </TabItem>
                             <TabItem Header="{l:Loc Shell.Activity}">
                                 <Grid Background="{DynamicResource SurfaceBrush}" Margin="18">
@@ -443,8 +432,8 @@
                     <Grid x:Name="TerminalPage" Visibility="Collapsed" Margin="34,30">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                         <StackPanel Margin="0,0,0,24"><TextBlock Text="{l:Loc Shell.Terminal}" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.TerminalDescription}" Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
-                        <Border Grid.Row="1" Background="{DynamicResource TerminalBrush}" CornerRadius="8" Padding="25">
-                            <StackPanel><TextBlock Text="{Binding ActiveConnectionEndpoint}" Foreground="{DynamicResource TerminalTextBrush}" FontSize="13" Margin="0,0,0,22"/><TextBlock Text="{Binding TerminalMessage}" Foreground="{DynamicResource TerminalTextBrush}" FontFamily="{StaticResource MonoFont}" FontSize="13" TextWrapping="Wrap" LineHeight="23"/></StackPanel>
+                        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Margin="0,24,0,0" ClipToBounds="True">
+                            <views:TerminalView DataContext="{Binding Terminal}" />
                         </Border>
                     </Grid>
                     <Grid x:Name="TransfersPage" Visibility="Collapsed" Margin="34,30">

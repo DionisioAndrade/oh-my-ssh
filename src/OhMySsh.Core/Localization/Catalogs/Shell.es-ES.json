@@ -95,8 +95,6 @@
   "Shell.Type": "Tipo",
   "Shell.DropUpload": "Suelta para subir a la VPS",
   "Shell.DropUploadHint": "Los archivos se añadirán a la cola secuencial.",
-  "Shell.SshSession": "SESIÓN SSH",
-  "Shell.TerminalUnavailable": "Emulación de terminal no disponible",
   "Shell.Activity": "Actividad",
   "Shell.DailyWorkflows": "Tareas para el día a día",
   "Shell.AutomationsUnavailable": "El editor y la ejecución de tareas estarán disponibles en una próxima versión.",

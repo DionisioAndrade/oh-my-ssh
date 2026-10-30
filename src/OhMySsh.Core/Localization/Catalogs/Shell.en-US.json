@@ -95,8 +95,6 @@
   "Shell.Type": "Type",
   "Shell.DropUpload": "Drop to upload to the VPS",
   "Shell.DropUploadHint": "Files will be added to the sequential queue.",
-  "Shell.SshSession": "SSH SESSION",
-  "Shell.TerminalUnavailable": "Terminal emulation unavailable",
   "Shell.Activity": "Activity",
   "Shell.DailyWorkflows": "Everyday workflows",
   "Shell.AutomationsUnavailable": "The task editor and runner will be available in a future release.",

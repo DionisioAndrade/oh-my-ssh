@@ -15,6 +15,8 @@
     <Resource Include="Assets\*.png" />
     <None Update="Assets\LICENSE.WPF-Samples.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Assets\LICENSE.MaterialIconTheme.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Assets\LICENSE.XTerm.NET.txt" CopyToOutputDirectory="PreserveNewest" />
+    <PackageReference Include="XTerm.NET" Version="3.0.0" />
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
     <ProjectReference Include="..\OhMySsh.Core\OhMySsh.Core.csproj" />

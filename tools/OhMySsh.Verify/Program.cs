@@ -140,6 +140,11 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("SFTP queue: serial work, progress, cancellation, and profile isolation", VerifyTransferQueueAsync);
         await CheckAsync("SFTP overwrite: rejection and pending-prompt cancellation", VerifyTransferOverwriteAsync);
         await CheckAsync("SFTP lifecycle: disconnect cancels work and clears remote state", VerifyTransferDisconnectionAsync);
+        await CheckAsync("Terminal engine: fragmented VT state, Unicode, colors, input modes, selection, and bounded history", VerifyTerminalEmulatorAsync);
+        await CheckAsync("Terminal output: sustained volume, detached snapshots, and bounded retained memory", VerifyTerminalVolumeAsync);
+        await CheckAsync("Terminal control: native routed input, focus escape, minimum layouts, live languages, and themes", VerifyTerminalSurfaceAsync);
+        await CheckAsync("Terminal lifecycle: captured sessions, stale opens, explicit retry, resize coalescing, and sanitized failures", VerifyTerminalControllerAsync);
+        await CheckAsync("Terminal workspace: shared shell, page and docked viewports, minimum layouts, languages, and themes", VerifyTerminalWorkspaceAsync);
         await CheckAsync("Transfer metrics: monotonic speed, remaining time, stalls, and terminal states", VerifyTransferMetricsAsync);
         await CheckAsync("Transfer queue controls: pause, resume, cancel all, and clear completed", VerifyTransferQueueControlsAsync);
         await CheckAsync("Transfer retry: captured targets, confirmation, reconnection, and source failures", VerifyTransferRetryAsync);
@@ -1269,6 +1274,7 @@ internal sealed class QaRemoteConnectionSession(ConnectionProfile profile, bool 
 
     public ConnectionProfile Profile { get; } = profile;
     public IRemoteFileService? Files { get; init; }
+    public IRemoteShellService? Shells { get; init; }
     public bool IsConnected => Volatile.Read(ref _isConnected) == 1;
     public int DisposeCalls => Volatile.Read(ref _disposeCalls);
     public Task Disposed => _disposed.Task;

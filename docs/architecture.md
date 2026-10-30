@@ -84,7 +84,7 @@ Both transfer directions stream through bounded buffers into staging files in th
 
 `TransferQueueView` renders the same queue in the file workspace and the dedicated transfers page, preserving the native Fluent control styles and shared theme brushes.
 
-The file workspace uses two resizable regions: the paired file browsers and a lower tabbed panel that opens on Transfers. Activity and the terminal preview share that lower region instead of reserving separate vertical space. Expanding transfers temporarily collapses the browsers and divider; restoring reuses the saved row sizes and minimum heights. These layout changes remain in window code-behind and do not mutate ViewModel session or transfer state. The shared queue combines speed and remaining time, allocates flexible width to names and progress, and bounds informational notices while keeping their complete text available through tooltips and accessibility properties.
+The file workspace uses two resizable regions: the paired file browsers and a lower tabbed panel that opens on Transfers. Activity and the interactive terminal share that lower region instead of reserving separate vertical space. Expanding transfers temporarily collapses the browsers and divider; restoring reuses the saved row sizes and minimum heights. These layout changes remain in window code-behind and do not mutate ViewModel session or transfer state. The shared queue combines speed and remaining time, allocates flexible width to names and progress, and bounds informational notices while keeping their complete text available through tooltips and accessibility properties.
 
 `FileKindClassifier` in Core maps a filename and directory flag to a broad presentation category using ordinal, case-insensitive lookups. `FileDevelopmentKindClassifier` supplies a separate language or development-tool hint, including Python, Java, C#, Markdown, web languages, shell scripts, Docker, and .NET projects. Both computed `FileEntry` properties avoid additional record state and file-system access. Directories always retain their folder presentation, and unrecognized development files fall back to their broad category.
 
@@ -102,11 +102,19 @@ Transfer failures are classified by typed error code or exception category into 
 
 Queue pause gates job admission without interrupting the current transfer. Cancel-all cancels pending work before it can start, while atomic finalization remains authoritative. Clearing completed history detaches row notifications and never deletes files. A retry creates a fresh job from the original immutable paths and profile settings, requires a matching active endpoint, and repeats existence checks and overwrite confirmation. Failed rows remain independent of the new attempt.
 
+## Interactive terminal
+
+`IRemoteShellService` is an optional session capability; `IRemoteShell` supplies byte reads/writes, completion, resizing, and asynchronous disposal. `SshRemoteShellService` uses a channel on the authenticated `SshClient`, preserving credentials and host identity. Only one shell or pending opening is admitted at a time. The adapter serializes writes and PTY size requests, caps its steady-state output ring at 512 KiB, and closes rather than drops output on overflow. Parent disposal cancels services and disconnects the SSH transport before waiting for pending creation, channels, and authentication cleanup. SSH.NET's public opening-time buffering limitation is documented in [terminal behavior](terminal.md).
+
+`TerminalSessionViewModel` owns an immutable session reference and a generation-scoped shell run. Every explicit open starts a new emulator and input queue. Cancellation rejects late open results, retires their channels, and prevents old output or input from reaching a replacement run. Background read/write loops keep terminal data off diagnostic logs and the UI dispatcher. Resize signals coalesce over 100 milliseconds; completion and error transitions are marshaled to the dispatcher. VPS disconnection, replacement, and shutdown share terminal retirement with SFTP cleanup.
+
+The pinned XTerm.NET 3.0.0 engine supplies VT state and incremental UTF-8 decoding. A thread-safe adapter exposes copied viewports to `TerminalSurface`, which draws native WPF cells and samples changes at most 30 times per second. The full page and docked view share one emulator; only a visible surface reports dimensions. Keyboard encoding follows terminal modes, clipboard actions require explicit user gestures, and host clipboard/image/notification/file-transfer escape features are disabled. Rendering caches, scrollback, output, and queued input are bounded. Both themes and all three languages preserve the session and screen. See [terminal behavior, engine evaluation, and test setup](terminal.md).
+
 ## Planned integrations
 
 1. Extend the implemented SSH.NET transport with command execution and, later, tunnels through explicit capability contracts.
 2. A FluentFTP adapter for FTP/FTPS, keeping the protocol and its capabilities explicit. The profile editor defaults to explicit FTPS on port 21.
-3. A dedicated VT/ANSI terminal emulator. A shell transport requires an emulator to render interactive programs. Validate Unicode, PTY, `vim`, `tmux`, resizing, and multiple sessions before choosing the component.
+3. Extend the native terminal through explicit capabilities when future session and accessibility requirements need them; multiple simultaneous VPS sessions remain outside the current implementation.
 4. Extend the implemented serial transfer queue with persistent history and protocol-neutral recovery policies.
 5. A task automation runner independent of tabs and windows, with persisted steps, timeouts, history, and a retry policy suited to each operation.
 

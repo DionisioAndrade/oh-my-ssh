@@ -23,7 +23,7 @@ internal static class Program
                 : Path.GetFullPath(args[0]);
             await using var fixture = await SshFixture.StartAsync(python, output);
             var suite = new SshVerificationSuite(fixture, output);
-            await suite.RunAsync();
+            await suite.RunAsync(args.Contains("--terminal-only", StringComparer.Ordinal));
             return suite.Failures == 0 ? 0 : 1;
         }
         catch (Exception exception)
@@ -54,8 +54,15 @@ internal sealed partial class SshVerificationSuite(SshFixture fixture, string ou
     };
     public int Failures => _checks.Count(x => !x.Passed);
 
-    public async Task RunAsync()
+    public async Task RunAsync(bool terminalOnly = false)
     {
+        if (terminalOnly)
+        {
+            await RunTerminalChecksAsync();
+            foreach (var service in _services) await ((IRemoteConnectionService)service).ShutdownAsync();
+            await WriteReportAsync();
+            return;
+        }
         await CheckAsync("Password authentication, trust once, immutable session, and disposal", async () =>
         {
             var profile = Profile;
@@ -215,6 +222,7 @@ internal sealed partial class SshVerificationSuite(SshFixture fixture, string ou
                 && !json.Contains("PRIVATE KEY", StringComparison.Ordinal), "Profile JSON contains authentication material.");
         });
         await RunSftpChecksAsync();
+        await RunTerminalChecksAsync();
 
         await CheckAsync("Changed host keys are blocked without a replacement prompt", async () =>
         {
@@ -242,6 +250,11 @@ internal sealed partial class SshVerificationSuite(SshFixture fixture, string ou
             }
             throw new InvalidOperationException("SSH verification left a transport socket open after shutdown.");
         });
+        await WriteReportAsync();
+    }
+
+    private async Task WriteReportAsync()
+    {
         var report = new { FinishedAt = DateTimeOffset.UtcNow, Passed = _checks.Count - Failures, Failed = Failures, Checks = _checks,
             Fixture = "Ephemeral AsyncSSH server on 127.0.0.1 only; generated keys are removed at fixture shutdown." };
         await File.WriteAllTextAsync(Path.Combine(output, "ssh-verification.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
@@ -329,7 +342,7 @@ internal sealed partial class SshVerificationSuite(SshFixture fixture, string ou
 }
 
 internal sealed record CheckResult(string Name, bool Passed, long DurationMs, string? Error);
-internal sealed record FixtureInfo(int Port, int StallPort, string Password, string Passphrase, string PlainKeyPath, string EncryptedKeyPath, string RsaKeyPath, string Fingerprint, int NoSftpPort, string SftpRoot);
+internal sealed record FixtureInfo(int Port, int StallPort, string Password, string Passphrase, string PlainKeyPath, string EncryptedKeyPath, string RsaKeyPath, string Fingerprint, int NoSftpPort, string SftpRoot, int RealTerminalPort);
 
 internal sealed class SshFixture(Process process, FixtureInfo info, Task<string> diagnosticDrain) : IAsyncDisposable
 {
@@ -340,6 +353,7 @@ internal sealed class SshFixture(Process process, FixtureInfo info, Task<string>
             RedirectStandardOutput = true, RedirectStandardError = true };
         start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "ssh_fixture.py"));
         start.ArgumentList.Add(Path.Combine(output, "fixture"));
+        start.ArgumentList.Add(Path.Combine(FindRuntimeRoot(output), "terminal-runtime", "msys"));
         var process = Process.Start(start) ?? throw new InvalidOperationException("The local SSH fixture could not start.");
         var diagnosticDrain = process.StandardError.ReadToEndAsync();
         try
@@ -357,6 +371,8 @@ internal sealed class SshFixture(Process process, FixtureInfo info, Task<string>
             throw;
         }
     }
+    private static string FindRuntimeRoot(string output) => Directory.GetParent(output)?.FullName
+        ?? throw new DirectoryNotFoundException("The local runtime directory could not be located.");
     public async Task<JsonElement> CommandAsync(string command)
     {
         await process.StandardInput.WriteLineAsync(command);
