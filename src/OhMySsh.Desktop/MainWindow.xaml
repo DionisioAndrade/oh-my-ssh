@@ -300,7 +300,7 @@
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <Grid Margin="10,0,8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{Binding IconGlyph}" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                            <ContentControl x:Name="FileTypeIcon" Style="{StaticResource SharedFileIconPresenterStyle}" />
                                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                                                                 <TextBlock Text="{Binding TypeLabel}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding TypeLabel}" />
@@ -360,7 +360,7 @@
                                               SelectionMode="Extended" SelectionChanged="RemoteFiles_SelectionChanged" MouseDoubleClick="RemoteFiles_DoubleClick" PreviewKeyDown="RemoteFiles_KeyDown" RowHeight="44" AutomationProperties.Name="{l:Loc Shell.RemoteFolderFiles}">
                                         <DataGrid.Columns>
                                             <DataGridTemplateColumn Header="{l:Loc Shell.Name}" Width="*" MinWidth="125" SortMemberPath="Name">
-                                                <DataGridTemplateColumn.CellTemplate><DataTemplate><Grid Margin="10,0,8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock Text="{Binding IconGlyph}" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                <DataGridTemplateColumn.CellTemplate><DataTemplate><Grid Margin="10,0,8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><ContentControl x:Name="FileTypeIcon" Style="{StaticResource SharedFileIconPresenterStyle}" />
                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
                                                         <TextBlock Text="{Binding TypeLabel}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding TypeLabel}" />

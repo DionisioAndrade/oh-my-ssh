@@ -14,6 +14,10 @@ Remote paths use POSIX `/` separators independently of Windows local paths. Unic
 
 The file workspace places the local and remote browsers above a shared lower panel, with **Transfers** selected by default. Drag the dividers to adjust the browser widths or the space reserved for transfers; a focused divider also responds to arrow keys. Use the expand button at the upper-right of the lower panel to give transfers the workspace, then restore the previous split. Activity and the terminal preview occupy adjacent tabs. Expanding, resizing, or switching tabs preserves the active session, file selection, and transfer queue.
 
+Both browsers use distinct icons and theme-aware colors for folders, source code and scripts, configuration, documents, spreadsheets, presentations, PDFs, archives, images, audio, video, applications, databases, fonts, and keys. Classification uses filename and extension hints, including common extensionless names and dotfiles; it does not inspect contents, download remote files, or query Windows file associations. Unknown formats retain a generic file icon. The existing file type text remains available alongside the icon.
+
+Development files also have language or tool icons: Python, Java, C#, Markdown, JavaScript, TypeScript, HTML, CSS, JSON, XML, YAML, shell, PowerShell, SQL, Go, Rust, PHP, Ruby, C, C++, .NET projects, and Docker. Common variants such as `.pyi`, `.csx`, `.markdown`, and Dockerfile names are recognized. A file can retain its existing broad category while displaying the more specific development icon; unsupported languages keep the category icon.
+
 ## Upload and download
 
 - To upload, select one or more local files with Ctrl or Shift and use the upload button above the local panel. If no file is selected, choose files in the native multi-file dialog.

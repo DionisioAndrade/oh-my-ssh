@@ -121,6 +121,10 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("Profiles: invalid JSON blocks changes and preserves the file", VerifyFailedLoadAsync);
         await CheckAsync("Files: actual navigation and failure without losing the listing", VerifyLocalNavigationAsync);
         await CheckAsync("Files: concurrent navigation does not mix results", VerifyConcurrentNavigationAsync);
+        await CheckAsync("File icons: filename categories, culture independence, and record copies", VerifyFileKindClassificationAsync);
+        await CheckAsync("File icons: native local and remote glyphs, live themes, and localized minimum layouts", VerifyNativeFileIconsAsync);
+        await CheckAsync("Development icons: language and tool filenames, culture independence, and record copies", VerifyDevelopmentFileClassificationAsync);
+        await CheckAsync("Development icons: distinct bundled vectors in local and remote minimum layouts", VerifyDevelopmentFileIconsAsync);
         await CheckAsync("Manual connection: validation, temporary session, and explicit saving", VerifyManualConnectionAsync);
         await CheckAsync("Connection: gate, awaited confirmation, failure, cancellation, and disconnection", VerifyConnectionSessionStateAsync);
         await CheckAsync("Connection: remote loss, stale callbacks, retry, and shutdown", VerifyConnectionLossAndShutdownAsync);

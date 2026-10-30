@@ -49,6 +49,10 @@ Browse the connected server's directories, upload multiple selected or dropped f
 
 Filter the queue by status and track pending files and remaining bytes. Each failed file includes a safe explanation and suggested action. Completed transfers provide shortcuts to the local folder, downloaded file, and remote path.
 
+Local and remote files have distinct icons and colors by file category, with a generic fallback for unknown formats. Icons use filename hints and do not require opening files or downloading their contents.
+
+Development files use dedicated icons for Python, Java, C#, Markdown, JavaScript, TypeScript, and other supported languages and tools. The bundled vector icons adapt to both themes and work offline; see [third-party notices](THIRD_PARTY_NOTICES.md) for attribution.
+
 The file workspace gives transfers a resizable lower panel with an expand button. File names and progress receive flexible width, while speed and remaining time share a compact column. Activity and the terminal preview are available in adjacent tabs.
 
 Transfers use temporary files and safe finalization to preserve existing destinations on failure or cancellation. Replacements require confirmation; upload replacement also requires the server's atomic rename support. See [SFTP transfers](docs/sftp-transfers.md) for behavior, cancellation limits, and verification.

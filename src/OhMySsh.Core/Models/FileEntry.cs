@@ -40,6 +40,9 @@ public sealed record FileEntry : INotifyPropertyChanged, IUiLanguageObserver
     public long Size { get; init; }
     public DateTime LastModified { get; init; }
 
+    public FileKind Kind => FileKindClassifier.Classify(Name, IsDirectory);
+    public FileDevelopmentKind DevelopmentKind => FileDevelopmentKindClassifier.Classify(Name, IsDirectory);
+
     public string Extension
     {
         get
