@@ -12,17 +12,21 @@ The remote panel loads the server's initial working directory after connection. 
 
 Remote paths use POSIX `/` separators independently of Windows local paths. Unicode filenames and spaces are supported. Loading, an empty directory, and a failed request have separate states. A failed navigation keeps the last successful listing. A server that does not provide SFTP reports an SFTP-specific error while the SSH session remains available.
 
+The file workspace places the local and remote browsers above a shared lower panel, with **Transfers** selected by default. Drag the dividers to adjust the browser widths or the space reserved for transfers; a focused divider also responds to arrow keys. Use the expand button at the upper-right of the lower panel to give transfers the workspace, then restore the previous split. Activity and the terminal preview occupy adjacent tabs. Expanding, resizing, or switching tabs preserves the active session, file selection, and transfer queue.
+
 ## Upload and download
 
 - To upload, select one or more local files with Ctrl or Shift and use the upload button above the local panel. If no file is selected, choose files in the native multi-file dialog.
 - Drag files from the local panel or Windows Explorer onto the remote panel or transfer queue. A highlighted drop target appears when the active session can accept files. A drop adds uploads; it does not move or delete local files.
-- To download, select a remote file and use the download button. Choose its destination in the native save dialog.
+- To download, select remote files with Ctrl or Shift, or use Ctrl+A to select the listing, then use the download button above the remote panel. A single file uses the native save dialog so you can choose its filename. Multiple files ask for one destination folder and keep their remote filenames.
 - Existing destinations require confirmation before replacement. Declining cancels that job and preserves the file.
 - Directories are navigable but cannot be transferred recursively in this delivery.
 
-The filename suggested for a download must be safe for Windows. Remote names cannot introduce path separators, reserved device names, or alternate data streams into the local destination. The application uses the destination chosen in the file dialog rather than treating a server-provided name as a local path.
+Remote filenames must be safe for Windows. Names containing path separators, reserved device names, alternate data streams, or other invalid Windows filename forms are rejected rather than renamed automatically. Downloads use the chosen local destination rather than treating a server-provided name as a local path.
 
 Each upload batch captures the active VPS and loaded remote directory before inspecting the files. Navigation or profile selection cannot redirect it. Duplicate local paths in a batch are ignored. Folders and malformed paths are skipped with a visible notice; valid file paths that become missing or inaccessible produce their own failed entries. Disconnect or cancel-all stops additions from an unfinished batch. A paused queue accepts batches without starting their files.
+
+Each download batch captures its remote sources and active VPS before opening the destination dialog. Changing directories or selecting or editing a profile cannot redirect it. Selected directories are skipped without recursion. Unsafe filenames, duplicate sources, and destination collisions under Windows' case-insensitive comparison are skipped; the first valid file keeps its destination. A localized notice reports skipped entries. Valid files enter the existing serial queue, with overwrite confirmation for each existing destination.
 
 ## Filters and pending work
 
@@ -41,6 +45,8 @@ Completed downloads provide a direct shortcut to select the downloaded file in W
 ## Progress and cancellation
 
 The file workspace and Transfers page show the same queue: filename, server, direction, transferred and total bytes, percentage, speed, estimated remaining time, and status. Hover over the remaining-time value to see elapsed time. Jobs are queued, running, completed, failed, or canceled. One file runs at a time; the queue is kept in memory and is not restored after closing the application.
+
+Filename and progress columns share the available width. Speed and remaining time appear together in one column, and filters, queue counts, pending volume, and queue controls stay above the rows. Hover over a truncated filename to read its source and destination, or over a batch notice to read the full message. File-browser rows show type below the name and allow modification dates to wrap, preserving room for both browsers at the minimum window size.
 
 Speed uses recent byte measurements and refreshes during periods without progress. The remaining-time estimate needs enough data to calculate a rate and changes as throughput changes. Empty files, insufficient samples, stalled transfers, finalization, and finished jobs show no remaining-time estimate. Elapsed time starts when processing the job begins, excludes its time waiting in the queue, and stops when the job finishes.
 

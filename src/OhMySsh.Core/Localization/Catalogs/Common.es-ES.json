@@ -1,0 +1,4 @@
+{
+  "App.AlreadyOpen": "oh-my-ssh ya está abierto. Usa su icono en la bandeja para restaurar la ventana.",
+  "App.OperationFailed": "No se pudo completar la operación. Cierra y vuelve a abrir la aplicación si el problema continúa."
+}

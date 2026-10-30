@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using OhMySsh.Core.Models;
+using OhMySsh.Core.Localization;
 using OhMySsh.Desktop.Services;
 using OhMySsh.Desktop.ViewModels;
 
@@ -18,10 +19,16 @@ public partial class MainWindow : Window
     private string _currentPage = "connections";
     private bool _navigationReady;
     private bool _updatingThemePicker;
+    private bool _updatingLanguagePicker;
     private bool _shutdownStarted;
     private bool _shutdownCompleted;
     private Point? _localDragOrigin;
     private FileEntry? _deferredLocalSelection;
+    private bool _transfersExpanded;
+    private GridLength _workspaceBrowserHeight;
+    private GridLength _workspaceTransferHeight;
+    private double _workspaceBrowserMinimum;
+    private double _workspaceTransferMinimum;
 
     public MainWindow(MainViewModel viewModel, bool initializeOnLoad = true)
     {
@@ -34,7 +41,9 @@ public partial class MainWindow : Window
         _viewModel.ActiveSessionChanged += OnActiveSessionChanged;
         _navigationReady = true;
         ThemeService.Current.ThemeChanged += OnThemeChanged;
+        UiText.Current.LanguageChanged += OnLanguageChanged;
         UpdateThemeControls();
+        UpdateLanguageControls();
         NavigateTo("connections");
     }
 
@@ -75,7 +84,7 @@ public partial class MainWindow : Window
         }
 
         _shutdownStarted = true;
-        var shutdown = _viewModel.ShutdownAsync();
+        var shutdown = Task.WhenAll(_viewModel.ShutdownAsync(), PendingLanguageChange);
         if (shutdown.IsCompletedSuccessfully)
         {
             _shutdownCompleted = true;
@@ -103,6 +112,7 @@ public partial class MainWindow : Window
     {
         _tray?.Dispose();
         ThemeService.Current.ThemeChanged -= OnThemeChanged;
+        UiText.Current.LanguageChanged -= OnLanguageChanged;
         _viewModel.ProfileSaved -= OnProfileSaved;
         _viewModel.ActiveSessionChanged -= OnActiveSessionChanged;
     }
@@ -210,6 +220,39 @@ public partial class MainWindow : Window
         }
     }
 
+    public Task PendingLanguageChange { get; private set; } = Task.CompletedTask;
+
+    private void LanguagePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_navigationReady && !_updatingLanguagePicker && LanguagePicker.SelectedItem is ComboBoxItem { Tag: string code })
+            PendingLanguageChange = ChangeLanguageAsync(code);
+    }
+
+    private async Task ChangeLanguageAsync(string code)
+    {
+        LanguagePicker.IsEnabled = false;
+        LanguageSaveErrorText.Visibility = Visibility.Collapsed;
+        try { await LocalizationService.Current.SetLanguageAsync(code); }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            LanguageSaveErrorText.Visibility = Visibility.Visible;
+            ApplicationLog.WriteFailure("Language preference save", exception);
+        }
+        finally { LanguagePicker.IsEnabled = true; }
+    }
+
+    private void OnLanguageChanged(object? sender, EventArgs e) => UpdateLanguageControls();
+
+    private void UpdateLanguageControls()
+    {
+        _updatingLanguagePicker = true;
+        try
+        {
+            LanguagePicker.SelectedValue = UiText.Current.CultureName;
+        }
+        finally { _updatingLanguagePicker = false; }
+    }
+
     private void OnThemeChanged(object? sender, EventArgs e) => UpdateThemeControls();
 
     private void UpdateThemeControls()
@@ -231,6 +274,38 @@ public partial class MainWindow : Window
         }
     }
 
+    private void TransferPanelSize_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_navigationReady) return;
+        var expanded = ExpandTransfersToggle.IsChecked == true;
+        if (_transfersExpanded == expanded) return;
+        _transfersExpanded = expanded;
+        if (expanded)
+        {
+            _workspaceBrowserHeight = FileBrowserRow.Height;
+            _workspaceTransferHeight = WorkspaceTransferRow.Height;
+            _workspaceBrowserMinimum = FileBrowserRow.MinHeight;
+            _workspaceTransferMinimum = WorkspaceTransferRow.MinHeight;
+            FileBrowserGrid.Visibility = Visibility.Collapsed;
+            WorkspaceFilesSplitter.Visibility = Visibility.Collapsed;
+            FileBrowserRow.MinHeight = 0;
+            FileBrowserRow.Height = new GridLength(0);
+            WorkspaceSplitterRow.Height = new GridLength(0);
+            WorkspaceTransferRow.Height = new GridLength(1, GridUnitType.Star);
+            WorkspaceTabs.SelectedItem = TransfersWorkspaceTab;
+        }
+        else
+        {
+            FileBrowserRow.MinHeight = _workspaceBrowserMinimum;
+            WorkspaceTransferRow.MinHeight = _workspaceTransferMinimum;
+            FileBrowserRow.Height = _workspaceBrowserHeight;
+            WorkspaceTransferRow.Height = _workspaceTransferHeight;
+            WorkspaceSplitterRow.Height = new GridLength(8);
+            FileBrowserGrid.Visibility = Visibility.Visible;
+            WorkspaceFilesSplitter.Visibility = Visibility.Visible;
+        }
+    }
+
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
     private void Maximize_Click(object sender, RoutedEventArgs e)
@@ -246,8 +321,7 @@ public partial class MainWindow : Window
 
     private void About_Click(object sender, RoutedEventArgs e)
         => MessageBox.Show(this,
-            "oh-my-ssh\nVersão 0.1.0\n\nUm espaço para organizar conexões, arquivos e tarefas.\n\nLicença Apache 2.0.",
-            "Sobre o oh-my-ssh", MessageBoxButton.OK, MessageBoxImage.Information);
+            UiText.Get("Shell.AboutBody"), UiText.Get("Shell.About"), MessageBoxButton.OK, MessageBoxImage.Information);
 
     private void FocusSearch_Click(object sender, RoutedEventArgs e)
     {
@@ -385,6 +459,12 @@ public partial class MainWindow : Window
         {
             _viewModel.OpenLocalEntryCommand.Execute(entry);
         }
+    }
+
+    private void RemoteFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+            viewModel.UpdateSelectedRemoteSelection(RemoteFilesGrid.SelectedItems.OfType<FileEntry>());
     }
 
     private void RemoteFiles_DoubleClick(object sender, MouseButtonEventArgs e)

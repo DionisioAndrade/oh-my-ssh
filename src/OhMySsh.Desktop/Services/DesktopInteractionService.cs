@@ -1,3 +1,4 @@
+using OhMySsh.Core.Localization;
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
@@ -25,8 +26,8 @@ public sealed class DesktopInteractionService : IDesktopInteractionService
     public bool ConfirmDelete(ConnectionProfile profile)
         => System.Windows.MessageBox.Show(
             System.Windows.Application.Current.MainWindow,
-            $"Remover a conexão “{profile.Name}”?\n\nOs arquivos do servidor não serão alterados.",
-            "Remover conexão",
+            UiText.Format("Dialog.RemoveConnectionQuestion", profile.Name),
+            UiText.Get("Dialog.RemoveConnection"),
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question,
             System.Windows.MessageBoxResult.No) == System.Windows.MessageBoxResult.Yes;
@@ -35,7 +36,7 @@ public sealed class DesktopInteractionService : IDesktopInteractionService
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Escolher pasta local",
+            Title = UiText.Get("Dialog.ChooseLocalFolder"),
             InitialDirectory = initialPath,
             Multiselect = false
         };
@@ -59,7 +60,7 @@ public sealed class DesktopInteractionService : IDesktopInteractionService
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Enviar arquivo para a VPS",
+            Title = UiText.Get("Dialog.UploadFile"),
             InitialDirectory = Directory.Exists(initialDirectory) ? initialDirectory : string.Empty,
             CheckFileExists = true,
             Multiselect = false
@@ -71,7 +72,7 @@ public sealed class DesktopInteractionService : IDesktopInteractionService
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Enviar arquivos para a VPS",
+            Title = UiText.Get("Dialog.UploadFiles"),
             InitialDirectory = Directory.Exists(initialDirectory) ? initialDirectory : string.Empty,
             CheckFileExists = true,
             Multiselect = true
@@ -160,7 +161,7 @@ public sealed class DesktopInteractionService : IDesktopInteractionService
     {
         var dialog = new SaveFileDialog
         {
-            Title = "Baixar arquivo da VPS",
+            Title = UiText.Get("Dialog.DownloadFile"),
             FileName = suggestedFileName,
             InitialDirectory = Directory.Exists(initialDirectory) ? initialDirectory : string.Empty,
             AddExtension = false,
@@ -168,6 +169,17 @@ public sealed class DesktopInteractionService : IDesktopInteractionService
             OverwritePrompt = false
         };
         return dialog.ShowDialog(Application.Current.MainWindow) == true ? dialog.FileName : null;
+    }
+
+    public string? PickDownloadFolder(string initialDirectory)
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = UiText.Get("Dialog.DownloadFolder"),
+            InitialDirectory = Directory.Exists(initialDirectory) ? initialDirectory : string.Empty,
+            Multiselect = false
+        };
+        return dialog.ShowDialog(Application.Current.MainWindow) == true ? dialog.FolderName : null;
     }
 
     public async Task<bool> ConfirmOverwriteAsync(string destination, bool isRemote, CancellationToken cancellationToken = default)

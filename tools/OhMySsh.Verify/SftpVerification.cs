@@ -1,7 +1,12 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
 using OhMySsh.Core.Abstractions;
+using OhMySsh.Core.Localization;
 using OhMySsh.Core.Models;
 using OhMySsh.Desktop;
 using OhMySsh.Desktop.Services;
@@ -210,6 +215,7 @@ internal sealed partial class VerificationRunner
 
     private async Task CaptureSftpWorkspaceAsync()
     {
+        var originalCulture = UiText.Current.CultureName;
         var profile = CreateProfile() with { Name = "SFTP workspace · QA" };
         IProgress<TransferProgress>? visibleProgress = null;
         var files = new QaRemoteFiles();
@@ -229,7 +235,7 @@ internal sealed partial class VerificationRunner
         var vm = CreateViewModel(new MemoryProfileStore([profile]), captureInteractions, service);
         await vm.InitializeAsync();
         await vm.NavigateToAsync(_workspace);
-        var window = new MainWindow(vm, initializeOnLoad: false);
+        var window = new MainWindow(vm, initializeOnLoad: false) { Width = 1440, Height = 950 };
         PrepareHiddenWindow(window);
         window.Show();
         try
@@ -257,6 +263,8 @@ internal sealed partial class VerificationRunner
             vm.ToggleTransferQueueCommand.Execute(null);
             vm.SelectedLocalEntry = QaRemoteFiles.Entry("README.md", Path.Combine(_workspace, "README.md"));
             await vm.UploadCommand.ExecuteAsync();
+            await VerifyPopulatedWorkspaceLayoutsAsync(window, vm);
+            UiText.Current.SetCulture("pt-BR");
             foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
             {
                 ThemeService.Current.Apply(theme);
@@ -330,7 +338,242 @@ internal sealed partial class VerificationRunner
             await vm.ShutdownAsync();
             window.Close();
             ThemeService.Current.Apply(AppTheme.Light);
+            UiText.Current.SetCulture(originalCulture);
         }
+    }
+
+    private async Task VerifyPopulatedWorkspaceLayoutsAsync(MainWindow window, MainViewModel vm)
+    {
+        var tabs = (TabControl)window.FindName("WorkspaceTabs");
+        var transfersTab = (TabItem)window.FindName("TransfersWorkspaceTab");
+        Require(ReferenceEquals(tabs.SelectedItem, transfersTab),
+            "Opening the file workspace did not put the populated transfer queue in the default dock.");
+        var jobs = vm.TransferJobs.ToArray();
+        Require(new[] { TransferState.Running, TransferState.Completed, TransferState.Failed, TransferState.Queued }
+                .All(state => jobs.Any(job => job.State == state)),
+            "The layout fixture did not exercise running, completed, failed, and queued transfers.");
+        var localPath = vm.LocalPath;
+        var remotePath = vm.RemotePath;
+        var localFiles = vm.LocalEntries.ToArray();
+        var remoteFiles = vm.RemoteEntries.ToArray();
+        var localSelection = vm.SelectedLocalEntries.ToArray();
+        var remoteSelection = vm.SelectedRemoteEntries.ToArray();
+        var session = vm.ActiveConnection;
+        foreach (var (width, height) in new[] { (1180, 800), (1440, 950) })
+        {
+            window.Width = width;
+            window.Height = height;
+            foreach (var theme in new[] { AppTheme.Light, AppTheme.Dark })
+            {
+                ThemeService.Current.Apply(theme);
+                foreach (var culture in UiText.SupportedCultureNames)
+                {
+                    UiText.Current.SetCulture(culture);
+                    window.NavigateTo("files");
+                    await SettleLayoutAsync(window);
+                    var queue = FindVisualChild<DataGrid>(window, grid => grid.Name == "TransferJobsGrid" && grid.IsVisible)
+                        ?? throw new InvalidOperationException("The default workspace queue was not visible.");
+                    queue.ScrollIntoView(jobs[0]);
+                    await SettleLayoutAsync(window);
+                    var label = $"{width}x{height}-{culture}-{theme.ToString().ToLowerInvariant()}";
+                    Capture(window, $"workspace-transfer-layout-{label}.png");
+                    Require(ReferenceEquals(tabs.SelectedItem, transfersTab), $"Transfers lost its default dock in {label}.");
+                    foreach (var name in new[] { "LocalFilesGrid", "RemoteFilesGrid", "UploadFileButton", "DownloadFileButton", "ExpandTransfersToggle" })
+                        RequireVisibleWithinWindow(window, (FrameworkElement)window.FindName(name), $"{name} ({label})");
+                    RequireQueueControlsVisible(window);
+                    RequireUsableTransferViewport(window, queue, label);
+                    Require(ReferenceEquals(vm.ActiveConnection, session) && vm.HasActiveSession
+                        && vm.LocalPath == localPath && vm.RemotePath == remotePath
+                        && vm.LocalEntries.SequenceEqual(localFiles) && vm.RemoteEntries.SequenceEqual(remoteFiles)
+                        && vm.SelectedLocalEntries.SequenceEqual(localSelection) && vm.SelectedRemoteEntries.SequenceEqual(remoteSelection)
+                        && vm.TransferJobs.SequenceEqual(jobs),
+                        $"Changing workspace size, theme, or culture changed the active session, paths, listings, selections, or jobs in {label}.");
+                }
+            }
+        }
+        await VerifyWorkspaceExpansionAndSplittersAsync(window, vm);
+    }
+
+    private async Task VerifyWorkspaceExpansionAndSplittersAsync(MainWindow window, MainViewModel vm)
+    {
+        window.Width = 1440;
+        window.Height = 950;
+        await SettleLayoutAsync(window);
+        var files = (Grid)window.FindName("FileBrowserGrid");
+        var fileRow = (RowDefinition)window.FindName("FileBrowserRow");
+        var transferRow = (RowDefinition)window.FindName("WorkspaceTransferRow");
+        var splitter = (GridSplitter)window.FindName("WorkspaceFilesSplitter");
+        var horizontalSplitter = VisualDescendants<GridSplitter>(files).Single(control => control.ResizeDirection == GridResizeDirection.Columns);
+        var beforeHeight = fileRow.ActualHeight;
+        SendSplitterKey(window, splitter, Key.Up);
+        await SettleLayoutAsync(window);
+        Require(fileRow.ActualHeight < beforeHeight - 0.5,
+            "The file/transfer splitter did not resize the workspace with an arrow key.");
+        for (var index = 0; index < 70; index++) SendSplitterKey(window, splitter, Key.Up);
+        await SettleLayoutAsync(window);
+        Require(fileRow.ActualHeight >= fileRow.MinHeight - 1 && transferRow.ActualHeight >= transferRow.MinHeight - 1,
+            "Keyboard resizing crossed the file or transfer panel's minimum height.");
+        for (var index = 0; index < 70; index++) SendSplitterKey(window, splitter, Key.Down);
+        await SettleLayoutAsync(window);
+        Require(fileRow.ActualHeight >= fileRow.MinHeight - 1 && transferRow.ActualHeight >= transferRow.MinHeight - 1,
+            "Keyboard resizing in the other direction crossed a panel's minimum height.");
+        var beforeWidth = files.ColumnDefinitions[0].ActualWidth;
+        SendSplitterKey(window, horizontalSplitter, Key.Left);
+        await SettleLayoutAsync(window);
+        Require(files.ColumnDefinitions[0].ActualWidth < beforeWidth - 0.5,
+            "The local/remote splitter did not resize the file browsers with an arrow key.");
+        for (var index = 0; index < 100; index++) SendSplitterKey(window, horizontalSplitter, Key.Left);
+        await SettleLayoutAsync(window);
+        Require(files.ColumnDefinitions[0].ActualWidth >= files.ColumnDefinitions[0].MinWidth - 1
+            && files.ColumnDefinitions[2].ActualWidth >= files.ColumnDefinitions[2].MinWidth - 1,
+            "Keyboard resizing crossed a file browser's minimum width.");
+        for (var index = 0; index < 100; index++) SendSplitterKey(window, horizontalSplitter, Key.Right);
+        await SettleLayoutAsync(window);
+        Require(files.ColumnDefinitions[0].ActualWidth >= files.ColumnDefinitions[0].MinWidth - 1
+            && files.ColumnDefinitions[2].ActualWidth >= files.ColumnDefinitions[2].MinWidth - 1,
+            "Keyboard resizing in the other direction crossed a file browser's minimum width.");
+        foreach (var name in new[] { "LocalFilesPanel", "RemoteFilesPanel", "UploadFileButton", "DownloadFileButton" })
+            RequireVisibleWithinWindow(window, (FrameworkElement)window.FindName(name), $"{name} after keyboard resizing");
+
+        // Non-default proportions catch restore code that silently replaces a user's split with the initial layout.
+        fileRow.Height = new GridLength(1.7, GridUnitType.Star);
+        transferRow.Height = new GridLength(1.3, GridUnitType.Star);
+        files.ColumnDefinitions[0].Width = new GridLength(1.25, GridUnitType.Star);
+        files.ColumnDefinitions[2].Width = new GridLength(1.75, GridUnitType.Star);
+        await SettleLayoutAsync(window);
+        var fileHeight = fileRow.Height;
+        var queueHeight = transferRow.Height;
+        var fileMinimum = fileRow.MinHeight;
+        var queueMinimum = transferRow.MinHeight;
+        var leftWidth = files.ColumnDefinitions[0].Width;
+        var rightWidth = files.ColumnDefinitions[2].Width;
+        var dock = (FrameworkElement)window.FindName("TransferQueuePanel");
+        var beforeDockHeight = dock.ActualHeight;
+        var toggle = (ToggleButton)window.FindName("ExpandTransfersToggle");
+        var jobs = vm.TransferJobs.ToArray();
+        var states = jobs.Select(job => job.State).ToArray();
+        var session = vm.ActiveConnection;
+        var localPath = vm.LocalPath;
+        var remotePath = vm.RemotePath;
+        var localFiles = vm.LocalEntries.ToArray();
+        var remoteFiles = vm.RemoteEntries.ToArray();
+        var localSelection = vm.SelectedLocalEntries.ToArray();
+        var remoteSelection = vm.SelectedRemoteEntries.ToArray();
+        var paused = vm.IsTransferQueuePaused;
+        var filter = vm.SelectedTransferFilter;
+        for (var cycle = 0; cycle < 2; cycle++)
+        {
+            toggle.IsChecked = true;
+            await SettleLayoutAsync(window);
+            Require(!files.IsVisible && !splitter.IsVisible && dock.ActualHeight > beforeDockHeight + 150,
+                "Expanding transfers did not reclaim the browser space for the queue.");
+            var grid = FindVisualChild<DataGrid>(window, item => item.Name == "TransferJobsGrid" && item.IsVisible)!;
+            RequireQueueControlsVisible(window);
+            RequireUsableTransferViewport(window, grid, "expanded transfer dock");
+            if (cycle == 0) Capture(window, "workspace-transfers-expanded.png");
+            toggle.IsChecked = false;
+            await SettleLayoutAsync(window);
+            Require(files.IsVisible && splitter.IsVisible && fileRow.Height == fileHeight && transferRow.Height == queueHeight
+                && fileRow.MinHeight == fileMinimum && transferRow.MinHeight == queueMinimum
+                && files.ColumnDefinitions[0].Width == leftWidth && files.ColumnDefinitions[2].Width == rightWidth,
+                "Restoring the workspace reset a custom split proportion or panel minimum.");
+            Require(ReferenceEquals(vm.ActiveConnection, session) && vm.HasActiveSession && vm.LocalPath == localPath && vm.RemotePath == remotePath
+                && vm.LocalEntries.SequenceEqual(localFiles) && vm.RemoteEntries.SequenceEqual(remoteFiles)
+                && vm.SelectedLocalEntries.SequenceEqual(localSelection) && vm.SelectedRemoteEntries.SequenceEqual(remoteSelection)
+                && vm.TransferJobs.SequenceEqual(jobs) && jobs.Select(job => job.State).SequenceEqual(states)
+                && vm.IsTransferQueuePaused == paused && vm.SelectedTransferFilter == filter,
+                "Expanding and restoring the queue changed session, navigation, selection, transfer work, pause state, or filter.");
+        }
+        Capture(window, "workspace-transfers-restored.png");
+    }
+
+    private static void SendSplitterKey(Window window, GridSplitter splitter, Key key)
+    {
+        var source = PresentationSource.FromVisual(window)
+            ?? throw new InvalidOperationException("The native workspace did not have a keyboard presentation source.");
+        splitter.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, Environment.TickCount, key)
+            { RoutedEvent = Keyboard.KeyDownEvent });
+        window.UpdateLayout();
+    }
+
+    private static void RequireUsableTransferViewport(Window window, DataGrid grid, string context)
+    {
+        RequireVisibleWithinWindow(window, grid, $"transfer rows ({context})");
+        var scroll = FindVisualChild<ScrollViewer>(grid, viewer => viewer.IsVisible)
+            ?? throw new InvalidOperationException("The queue did not expose a scrolling viewport.");
+        Require(scroll.ScrollableWidth <= 1, $"The queue required horizontal scrolling in {context}: {scroll.ScrollableWidth:0.##} px.");
+        foreach (var header in VisualDescendants<DataGridColumnHeader>(grid).Where(item => item.IsVisible && item.Content is string))
+        {
+            var caption = (string)header.Content;
+            var formatted = new FormattedText(caption, UiText.Current.Culture, header.FlowDirection,
+                new Typeface(header.FontFamily, header.FontStyle, header.FontWeight, header.FontStretch),
+                header.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(window).PixelsPerDip);
+            var available = header.ActualWidth - header.Padding.Left - header.Padding.Right;
+            Require(formatted.WidthIncludingTrailingWhitespace <= available + 1,
+                $"The transfer column header '{caption}' was clipped in {context}.");
+        }
+        var fullRows = VisualDescendants<DataGridRow>(grid).Where(row => row.IsVisible)
+            .Where(row =>
+            {
+                var bounds = row.TransformToAncestor(grid).TransformBounds(new Rect(row.RenderSize));
+                return bounds.Top >= grid.ColumnHeaderHeight - 1 && bounds.Bottom <= grid.ActualHeight + 1;
+            }).ToArray();
+        Require(fullRows.Length >= 2, $"The default queue exposed only {fullRows.Length} complete transfer rows in {context}.");
+        foreach (var row in fullRows)
+        {
+            foreach (var property in new[] { "FileName", "SpeedLabel", "RemainingTimeLabel" })
+            {
+                var text = FindVisualChild<TextBlock>(row, item => BindingOperations.GetBinding(item, TextBlock.TextProperty)?.Path?.Path == property)
+                    ?? throw new InvalidOperationException($"A transfer row lost its {property} display in {context}.");
+                RequireVisibleWithinWindow(window, text, $"{property} ({context})");
+                if (property == "FileName") Require(text.ActualWidth >= 140, $"The transfer filename was squeezed in {context}.");
+            }
+            var progress = FindVisualChild<ProgressBar>(row, item => item.IsVisible)
+                ?? throw new InvalidOperationException($"A transfer row lost its progress bar in {context}.");
+            Require(progress.ActualWidth >= 125, $"The progress bar was squeezed to {progress.ActualWidth:0.##} px in {context}.");
+            var percentage = FindVisualChild<TextBlock>(row, item => BindingOperations.GetBinding(item, TextBlock.TextProperty)?.Path?.Path == "ProgressPercent")!;
+            var speed = FindVisualChild<TextBlock>(row, item => BindingOperations.GetBinding(item, TextBlock.TextProperty)?.Path?.Path == "SpeedLabel")!;
+            var percentageBounds = percentage.TransformToAncestor(row).TransformBounds(new Rect(percentage.RenderSize));
+            var speedBounds = speed.TransformToAncestor(row).TransformBounds(new Rect(speed.RenderSize));
+            Require(speedBounds.Left - percentageBounds.Right >= 8,
+                $"The transfer percentage and speed ran together without a readable column gutter in {context}.");
+            foreach (var control in VisualDescendants<FrameworkElement>(row).Where(item => item.IsVisible && item is Button or ProgressBar))
+            {
+                RequireVisibleWithinWindow(window, control, $"transfer action/progress ({context})");
+                var cell = FindVisualAncestor<DataGridCell>(control);
+                if (cell is null) continue;
+                var bounds = control.TransformToAncestor(cell).TransformBounds(new Rect(control.RenderSize));
+                Require(bounds.Left >= -1 && bounds.Top >= -1 && bounds.Right <= cell.ActualWidth + 1 && bounds.Bottom <= cell.ActualHeight + 1,
+                    $"A transfer action or progress control crossed its column bounds in {context}: {bounds} inside {cell.RenderSize}.");
+                if (control is Button { Content: string caption } button)
+                {
+                    var formatted = new FormattedText(caption, UiText.Current.Culture, button.FlowDirection,
+                        new Typeface(button.FontFamily, button.FontStyle, button.FontWeight, button.FontStretch),
+                        button.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(window).PixelsPerDip);
+                    var available = button.ActualWidth - button.Padding.Left - button.Padding.Right
+                        - button.BorderThickness.Left - button.BorderThickness.Right;
+                    Require(formatted.WidthIncludingTrailingWhitespace <= available + 1,
+                        $"The transfer action '{caption}' was clipped in {context}: {formatted.WidthIncludingTrailingWhitespace:0.##} px required, {available:0.##} px available.");
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is T match) yield return match;
+            foreach (var descendant in VisualDescendants<T>(child)) yield return descendant;
+        }
+    }
+
+    private static T? FindVisualAncestor<T>(DependencyObject child) where T : DependencyObject
+    {
+        for (var parent = VisualTreeHelper.GetParent(child); parent is not null; parent = VisualTreeHelper.GetParent(parent))
+            if (parent is T match) return match;
+        return null;
     }
 
     private static async Task WaitUntilAsync(Func<bool> predicate)
@@ -345,19 +588,33 @@ internal sealed partial class VerificationRunner
 
     private static void RequireQueueControlsVisible(Window window)
     {
+        var controls = new List<FrameworkElement>();
         foreach (var name in new[] { "ToggleTransferQueueButton", "CancelAllTransfersButton", "ClearCompletedTransfersButton" })
         {
             var button = FindVisualChild<Button>(window, item => item.Name == name && item.IsVisible)
                 ?? throw new InvalidOperationException($"The transfer queue control {name} was not visible.");
             RequireVisibleWithinWindow(window, button, name);
+            controls.Add(button);
         }
         var grid = FindVisualChild<DataGrid>(window, item => item.Name == "TransferJobsGrid" && item.IsVisible)
             ?? throw new InvalidOperationException("The transfer queue was not visible.");
         var filter = FindVisualChild<ComboBox>(window, item => item.Name == "TransferFilterBox" && item.IsVisible)
             ?? throw new InvalidOperationException("The transfer state filter was not visible.");
         RequireVisibleWithinWindow(window, filter, "transfer state filter");
-        Require(grid.Columns.Any(column => Equals(column.Header, "Velocidade"))
-            && grid.Columns.Any(column => Equals(column.Header, "Restante")), "Transfer speed or remaining-time columns were missing.");
+        controls.Add(filter);
+        for (var first = 0; first < controls.Count; first++)
+        for (var second = first + 1; second < controls.Count; second++)
+        {
+            var firstBounds = controls[first].TransformToAncestor(window).TransformBounds(new Rect(controls[first].RenderSize));
+            var secondBounds = controls[second].TransformToAncestor(window).TransformBounds(new Rect(controls[second].RenderSize));
+            var overlap = Rect.Intersect(firstBounds, secondBounds);
+            Require(overlap.IsEmpty || overlap.Width <= 1 || overlap.Height <= 1,
+                $"Transfer toolbar controls {controls[first].Name} and {controls[second].Name} overlap.");
+        }
+        foreach (var property in new[] { "SpeedLabel", "RemainingTimeLabel" })
+            Require(FindVisualChild<TextBlock>(grid, text => text.IsVisible
+                && BindingOperations.GetBinding(text, TextBlock.TextProperty)?.Path?.Path == property) is not null,
+                $"The transfer queue lost its {property} display.");
     }
 }
 

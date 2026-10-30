@@ -1,3 +1,4 @@
+using OhMySsh.Core.Localization;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -21,6 +22,7 @@ public partial class SshCredentialsWindow : Window
     private bool _verifying;
     private bool _closed;
     private long _disclosureVersion;
+    private string? _validationKey;
 
     public SshCredentialsWindow(ConnectionProfile profile, bool allowRemember,
         IWindowsUserVerificationService? verification = null, ICredentialClipboardService? clipboard = null)
@@ -37,19 +39,16 @@ public partial class SshCredentialsWindow : Window
 
         var host = profile.Host.Contains(':') ? $"[{profile.Host.Trim('[', ']')}]": profile.Host;
         EndpointText.Text = $"{profile.Username}@{host}:{profile.Port}";
-        MethodText.Text = _method == RemoteAuthenticationMethod.Password ? "Password authentication" : "Private-key authentication";
         // A profile path is nonsecret metadata, but may contain an accidentally entered password.
         // Never echo it into this authentication surface, including tooltips or automation properties.
         KeyPathText.ToolTip = null;
         KeyPathText.Visibility = _method == RemoteAuthenticationMethod.PrivateKey ? Visibility.Visible : Visibility.Collapsed;
-        SecretLabel.Content = _method == RemoteAuthenticationMethod.Password ? "_Password" : "_Passphrase (optional for an unencrypted key)";
-        CopySecretButton.Content = _method == RemoteAuthenticationMethod.Password ? "Copy password" : "Copy passphrase";
         RememberCheckBox.IsEnabled = allowRemember;
-        if (!allowRemember)
-            StorageHintText.Text = "Manual connection credentials are temporary. Save a VPS profile to remember credentials.";
+        RefreshLocalizedText();
 
         _initializing = false;
         UpdateDisclosureButtons();
+        UiText.Current.LanguageChanged += LanguageChanged;
         Loaded += (_, _) => SecretBox.Focus();
         Deactivated += (_, _) =>
         {
@@ -60,6 +59,7 @@ public partial class SshCredentialsWindow : Window
         };
         Closed += (_, _) =>
         {
+            UiText.Current.LanguageChanged -= LanguageChanged;
             _closed = true;
             InvalidateDisclosure();
             _lifetime.Cancel();
@@ -70,6 +70,24 @@ public partial class SshCredentialsWindow : Window
 
     public RemoteConnectionCredentials? Credentials { get; private set; }
     public Task PendingDisclosure { get; private set; } = Task.CompletedTask;
+
+    private void LanguageChanged(object? sender, EventArgs e) => RefreshLocalizedText();
+
+    private void RefreshLocalizedText()
+    {
+        MethodText.Text = UiText.Get(_method == RemoteAuthenticationMethod.Password ? "Dialog.PasswordMethod" : "Dialog.KeyMethod");
+        SecretLabel.Content = UiText.Get(_method == RemoteAuthenticationMethod.Password ? "Dialog.PasswordLabel" : "Dialog.PassphraseLabel");
+        CopySecretButton.Content = UiText.Get(_method == RemoteAuthenticationMethod.Password ? "Dialog.CopyPassword" : "Dialog.CopyPassphrase");
+        StorageHintText.Text = UiText.Get(_allowRemember ? "Dialog.StorageHint" : "Dialog.TemporaryCredentials");
+        RevealSecretButton.Content = UiText.Get(RevealedSecretBox.Visibility == Visibility.Visible ? "Dialog.Hide" : "Dialog.Show");
+        if (_validationKey is not null) ValidationText.Text = UiText.Get(_validationKey);
+    }
+
+    private void ShowStatus(string? key)
+    {
+        _validationKey = key;
+        ValidationText.Text = key is null ? string.Empty : UiText.Get(key);
+    }
 
     private bool HasSecret()
     {
@@ -90,7 +108,7 @@ public partial class SshCredentialsWindow : Window
     {
         if (_initializing) return;
         InvalidateDisclosure();
-        ValidationText.Text = string.Empty;
+        ShowStatus(null);
         UpdateDisclosureButtons();
     }
 
@@ -107,7 +125,7 @@ public partial class SshCredentialsWindow : Window
         RevealedSecretBox.Clear();
         RevealedSecretBox.Visibility = Visibility.Collapsed;
         SecretBox.Visibility = Visibility.Visible;
-        RevealSecretButton.Content = "Show";
+        RevealSecretButton.Content = UiText.Get("Dialog.Show");
     }
 
     private void CopyIp_Click(object sender, RoutedEventArgs e)
@@ -116,11 +134,11 @@ public partial class SshCredentialsWindow : Window
         try
         {
             _clipboard.CopyAddress(_profile.Host);
-            ValidationText.Text = "Server address copied.";
+            ShowStatus("Dialog.AddressCopied");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            ValidationText.Text = "The clipboard is unavailable. Try copying again.";
+            ShowStatus("Dialog.ClipboardUnavailable");
         }
     }
 
@@ -146,30 +164,30 @@ public partial class SshCredentialsWindow : Window
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _disclosureCancellation = cancellation;
         UpdateDisclosureButtons();
-        ValidationText.Text = "Confirm your Windows account password in the system dialog.";
+        ShowStatus("Dialog.ConfirmWindows");
         var copyAttempted = false;
         try
         {
             var owner = new WindowInteropHelper(this).EnsureHandle();
             var result = await _verification.VerifyAsync(owner,
-                copy ? "Confirm your Windows password to copy the SSH secret." : "Confirm your Windows password to reveal the SSH secret.",
+                copy ? UiText.Get("Dialog.ConfirmCopy") : UiText.Get("Dialog.ConfirmReveal"),
                 cancellation.Token).WaitAsync(cancellation.Token);
             // Let the native credential dialog return foreground ownership before the final check.
             await Dispatcher.Yield(DispatcherPriority.Background);
             if (_closed || !IsVisible || cancellation.IsCancellationRequested || version != _disclosureVersion) return;
             if (result != WindowsUserVerificationResult.Verified)
             {
-                ValidationText.Text = result switch
+                ShowStatus(result switch
                 {
-                    WindowsUserVerificationResult.Canceled => "Windows authentication was canceled. The secret stays hidden.",
-                    WindowsUserVerificationResult.Rejected => "Windows authentication failed. Use the password of the current Windows account.",
-                    _ => "Windows password verification is unavailable. The secret stays hidden."
-                };
+                    WindowsUserVerificationResult.Canceled => "Dialog.VerificationCanceled",
+                    WindowsUserVerificationResult.Rejected => "Dialog.VerificationRejected",
+                    _ => "Dialog.VerificationUnavailable"
+                });
                 return;
             }
             if (!_verification.IsOwnerActive(owner))
             {
-                ValidationText.Text = "Return to this window and authenticate again. The secret stays hidden.";
+                ShowStatus("Dialog.VerificationInactive");
                 return;
             }
             if (!HasSecret()) return;
@@ -179,25 +197,25 @@ public partial class SshCredentialsWindow : Window
             {
                 copyAttempted = true;
                 _clipboard.CopySecret(SecretBox.Password);
-                ValidationText.Text = "Secret copied. This app's clipboard entry will be cleared after 30 seconds.";
+                ShowStatus("Dialog.SecretCopied");
             }
             else
             {
                 RevealedSecretBox.Text = SecretBox.Password;
                 SecretBox.Visibility = Visibility.Collapsed;
                 RevealedSecretBox.Visibility = Visibility.Visible;
-                RevealSecretButton.Content = "Hide";
+                RevealSecretButton.Content = UiText.Get("Dialog.Hide");
                 _revealTimer.Start();
-                ValidationText.Text = "Secret shown temporarily. It hides after 15 seconds or when this window loses focus.";
+                ShowStatus("Dialog.SecretRevealed");
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             HideRevealedSecret();
-            if (!_closed) ValidationText.Text = copyAttempted
-                ? "The copy could not be confirmed. Any clipboard entry created by this app is still scheduled for cleanup."
-                : "The protected action could not be completed. The secret stays hidden.";
+            if (!_closed) ShowStatus(copyAttempted
+                ? "Dialog.CopyUnconfirmed"
+                : "Dialog.ProtectedActionFailed");
         }
         finally
         {
@@ -214,7 +232,7 @@ public partial class SshCredentialsWindow : Window
         using var secureValue = SecretBox.SecurePassword;
         if (_method == RemoteAuthenticationMethod.Password && secureValue.Length == 0)
         {
-            ValidationText.Text = "Enter the SSH password.";
+            ShowStatus("Dialog.PasswordRequired");
             SecretBox.Focus();
             return;
         }

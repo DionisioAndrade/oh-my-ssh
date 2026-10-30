@@ -14,6 +14,7 @@ public interface IDesktopInteractionService
     IReadOnlyList<string> PickUploadFiles(string initialDirectory)
         => PickUploadFile(initialDirectory) is { } path ? [path] : [];
     string? PickDownloadFile(string suggestedFileName, string initialDirectory) => null;
+    string? PickDownloadFolder(string initialDirectory) => null;
     void ShowTransferDetails(TransferItemViewModel job) { }
     void OpenLocalFolder(string directory) { }
     void RevealLocalFile(string file) { }

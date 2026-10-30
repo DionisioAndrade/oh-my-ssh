@@ -1,18 +1,22 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Windows.Data;
 using System.Windows.Threading;
 using OhMySsh.Core.Abstractions;
 using OhMySsh.Core.Models;
+using OhMySsh.Core.Localization;
 using OhMySsh.Infrastructure.Persistence;
 using RemotePaths = OhMySsh.Core.Models.RemotePath;
 
 namespace OhMySsh.Desktop.ViewModels;
 
 public enum TransferFilter { All, Active, Completed, Failed, Canceled }
-public sealed record TransferFilterOption(TransferFilter Filter, string Label);
+public sealed class TransferFilterOption(TransferFilter filter, string labelKey) : ObservableObject
+{
+    public TransferFilter Filter { get; } = filter;
+    public string Label => UiText.Get(labelKey);
+}
 
 public sealed partial class MainViewModel
 {
@@ -21,7 +25,7 @@ public sealed partial class MainViewModel
     private RemoteSessionContext? _remoteContext;
     private string _remotePath = string.Empty;
     private string _loadedRemotePath = string.Empty;
-    private string _remoteError = string.Empty;
+    private UiMessage? _remoteError;
     private FileEntry? _selectedRemoteEntry;
     private bool _isRemoteLoading;
     private bool _remoteRequiresReconnect;
@@ -37,7 +41,7 @@ public sealed partial class MainViewModel
     private TransferItemViewModel? _timedTransfer;
     private IReadOnlyList<FileEntry> _selectedLocalEntries = [];
     private TransferFilter _selectedTransferFilter;
-    private string _batchUploadNotice = string.Empty;
+    private UiMessage[] _batchUploadNotices = [];
     private bool _refreshingTransferView;
     private bool _batchAddingTransfers;
     private long _uploadBatchVersion;
@@ -47,9 +51,9 @@ public sealed partial class MainViewModel
     public ICollectionView FilteredTransferJobs { get; private set; } = null!;
     public IReadOnlyList<TransferFilterOption> TransferFilters { get; } =
     [
-        new(TransferFilter.All, "Todas"), new(TransferFilter.Active, "Em andamento"),
-        new(TransferFilter.Completed, "Concluídas"), new(TransferFilter.Failed, "Falhas"),
-        new(TransferFilter.Canceled, "Canceladas")
+        new(TransferFilter.All, "Vm.Filter.All"), new(TransferFilter.Active, "Vm.Filter.Active"),
+        new(TransferFilter.Completed, "Vm.Filter.Completed"), new(TransferFilter.Failed, "Vm.Filter.Failed"),
+        new(TransferFilter.Canceled, "Vm.Filter.Canceled")
     ];
     public TransferFilter SelectedTransferFilter
     {
@@ -62,18 +66,17 @@ public sealed partial class MainViewModel
     }
     public bool HasVisibleTransfers => FilteredTransferJobs is { IsEmpty: false };
     public string TransferEmptyMessage => HasTransfers
-        ? "Nenhuma transferência neste filtro."
-        : "Nenhuma transferência na fila. Envie ou arraste arquivos para começar.";
+        ? UiText.Get("Vm.TransferEmptyFiltered")
+        : UiText.Get("Vm.TransferEmpty");
     public IReadOnlyList<FileEntry> SelectedLocalEntries => _selectedLocalEntries;
-    public string BatchUploadNotice
+    public string BatchUploadNotice => string.Join(' ', _batchUploadNotices.Select(message => message.Text));
+    private void SetBatchUploadNotice(params UiMessage[] notices)
     {
-        get => _batchUploadNotice;
-        private set
-        {
-            if (SetProperty(ref _batchUploadNotice, value)) OnPropertyChanged(nameof(HasBatchUploadNotice));
-        }
+        _batchUploadNotices = notices;
+        OnPropertyChanged(nameof(BatchUploadNotice));
+        OnPropertyChanged(nameof(HasBatchUploadNotice));
     }
-    public bool HasBatchUploadNotice => BatchUploadNotice.Length > 0;
+    public bool HasBatchUploadNotice => _batchUploadNotices.Length > 0;
     public AsyncRelayCommand RefreshRemoteCommand { get; private set; } = null!;
     public AsyncRelayCommand GoUpRemoteCommand { get; private set; } = null!;
     public AsyncRelayCommand NavigateRemoteCommand { get; private set; } = null!;
@@ -108,24 +111,23 @@ public sealed partial class MainViewModel
             if (SetProperty(ref _isRemoteLoading, value)) NotifyRemoteState();
         }
     }
-    public string RemoteError
+    public string RemoteError => _remoteError?.Text ?? string.Empty;
+    private void SetRemoteError(UiMessage? error)
     {
-        get => _remoteError;
-        private set
-        {
-            if (SetProperty(ref _remoteError, value)) NotifyRemoteState();
-        }
+        _remoteError = error;
+        OnPropertyChanged(nameof(RemoteError));
+        NotifyRemoteState();
     }
     public bool HasRemoteError => RemoteError.Length > 0;
     public bool HasRemoteEntries => RemoteEntries.Count > 0;
     public bool HasRemoteFileService => _remoteContext is not null && HasActiveSession && !_remoteRequiresReconnect;
     public bool IsRemoteEmpty => _hasRemoteDirectory && !IsRemoteLoading && !HasRemoteError && !HasRemoteEntries;
     public string RemoteSummary => _hasRemoteDirectory
-        ? $"{RemoteEntries.Count} itens · {RemoteEntries.Count(item => item.IsDirectory)} pastas · {RemoteEntries.Count(item => !item.IsDirectory)} arquivos"
-        : IsRemoteLoading ? "Carregando arquivos remotos…" : "SFTP";
-    public string RemoteStateMessage => IsRemoteLoading ? "Carregando arquivos remotos…"
-        : HasRemoteError ? RemoteError : IsRemoteEmpty ? "Esta pasta está vazia."
-        : HasActiveSession ? "Os arquivos remotos aparecerão aqui." : "Conecte uma VPS para explorar seus arquivos.";
+        ? UiText.Format("Vm.FileSummary", RemoteEntries.Count, RemoteEntries.Count(item => item.IsDirectory), RemoteEntries.Count(item => !item.IsDirectory))
+        : IsRemoteLoading ? UiText.Get("Vm.Remote.Loading") : "SFTP";
+    public string RemoteStateMessage => IsRemoteLoading ? UiText.Get("Vm.Remote.Loading")
+        : HasRemoteError ? RemoteError : IsRemoteEmpty ? UiText.Get("Vm.Remote.Empty")
+        : HasActiveSession ? UiText.Get("Vm.Remote.WelcomeConnected") : UiText.Get("Vm.Remote.Welcome");
     public bool HasTransfers => TransferJobs.Count > 0;
     public int TransferCount => TransferJobs.Count;
     public int PendingTransferCount => TransferJobs.Count(IsPendingTransfer);
@@ -145,10 +147,10 @@ public sealed partial class MainViewModel
         }
     }
     public string PendingBytesLabel => HasUnknownPendingSize
-        ? PendingBytes > 0 ? $"{FormatPendingBytes(PendingBytes)} + tamanho desconhecido" : "Tamanho a calcular"
+        ? PendingBytes > 0 ? UiText.Format("Vm.Pending.UnknownRemainder", FormatPendingBytes(PendingBytes)) : UiText.Get("Vm.Pending.UnknownSize")
         : FormatPendingBytes(PendingBytes);
-    public string PendingSummary => PendingTransferCount == 0 ? "Nenhum arquivo pendente"
-        : $"{PendingTransferCount} {(PendingTransferCount == 1 ? "arquivo pendente" : "arquivos pendentes")} · {PendingBytesLabel}";
+    public string PendingSummary => PendingTransferCount == 0 ? UiText.Get("Vm.Pending.Empty")
+        : UiText.Format(PendingTransferCount == 1 ? "Vm.Pending.Single" : "Vm.Pending.Multiple", PendingTransferCount, PendingBytesLabel);
     public bool IsTransferQueuePaused
     {
         get => _isTransferQueuePaused;
@@ -159,8 +161,8 @@ public sealed partial class MainViewModel
             NotifyTransferState();
         }
     }
-    public string QueuePauseLabel => IsTransferQueuePaused ? "Continuar fila" : "Pausar fila";
-    public string TransferSummary => $"{(IsTransferQueuePaused ? "Fila pausada · " : string.Empty)}{TransferJobs.Count(item => item.State == TransferState.Queued)} na fila · {TransferJobs.Count(item => item.State == TransferState.Running)} em andamento";
+    public string QueuePauseLabel => UiText.Get(IsTransferQueuePaused ? "Vm.Queue.Resume" : "Vm.Queue.Pause");
+    public string TransferSummary => UiText.Format(IsTransferQueuePaused ? "Vm.Queue.PausedSummary" : "Vm.Queue.Summary", TransferJobs.Count(item => item.State == TransferState.Queued), TransferJobs.Count(item => item.State == TransferState.Running));
     public Task RemoteInitialization => _remoteInitializationTask;
     public Task WaitForTransfersAsync() => _queueWorkerTask;
 
@@ -177,12 +179,12 @@ public sealed partial class MainViewModel
         UploadFilesCommand = new AsyncRelayCommand(parameter => QueueUploadFilesAsync((IEnumerable<string>)parameter!),
             parameter => parameter is IEnumerable<string> && CanQueueTransfer(), ReportRemoteFailure);
         DownloadCommand = new AsyncRelayCommand(QueueDownloadAsync,
-            () => CanQueueTransfer() && SelectedRemoteEntry is { IsDirectory: false }, ReportRemoteFailure);
+            () => CanQueueTransfer() && HasDownloadableRemoteSelection, ReportRemoteFailure);
         CancelTransferCommand = new RelayCommand(parameter => CancelTransfer((TransferItemViewModel)parameter!),
             parameter => parameter is TransferItemViewModel { CanCancel: true } job && TransferJobs.Contains(job));
         ToggleTransferQueueCommand = new RelayCommand(ToggleTransferQueue, CanBrowseRemote);
         CancelAllTransfersCommand = new RelayCommand(CancelAllTransfers,
-            () => TransferJobs.Any(job => job.CanCancel));
+            () => _isPreparingDownloadBatch || TransferJobs.Any(job => job.CanCancel));
         ClearCompletedTransfersCommand = new RelayCommand(ClearCompletedTransfers,
             () => TransferJobs.Any(job => job.State == TransferState.Completed));
         RetryTransferCommand = new RelayCommand(parameter => RetryTransfer((TransferItemViewModel)parameter!),
@@ -209,7 +211,7 @@ public sealed partial class MainViewModel
         _remoteRequiresReconnect = false;
         if (session.Files is not { } files)
         {
-            RemoteError = "SFTP is unavailable for this connection.";
+            SetRemoteError(new UiMessage("Vm.Remote.Unavailable"));
             NotifyRemoteState();
             return;
         }
@@ -225,7 +227,7 @@ public sealed partial class MainViewModel
     {
         var version = ++_remoteRequestVersion;
         IsRemoteLoading = true;
-        RemoteError = string.Empty;
+        SetRemoteError(null);
         try
         {
             var homeTask = context.Files.GetHomeDirectoryAsync(context.Lifetime.Token);
@@ -275,7 +277,7 @@ public sealed partial class MainViewModel
         context.NavigationCancellation = cancellation;
         var version = ++_remoteRequestVersion;
         IsRemoteLoading = true;
-        RemoteError = string.Empty;
+        SetRemoteError(null);
         Task<IReadOnlyList<FileEntry>>? listingTask = null;
         try
         {
@@ -288,9 +290,9 @@ public sealed partial class MainViewModel
             _loadedRemotePath = resolved;
             RemotePath = resolved;
             _hasRemoteDirectory = true;
-            SelectedRemoteEntry = null;
+            UpdateSelectedRemoteSelection([]);
             NotifyRemoteState();
-            SetStatus($"Remote folder refreshed · {entries.Count} items", "Success");
+            SetStatus("Vm.Status.RemoteRefreshed", "Success", entries.Count);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
         catch (Exception exception)
@@ -345,7 +347,8 @@ public sealed partial class MainViewModel
     private async Task ValidateAndQueueUploadFilesAsync(RemoteSessionContext context, string remoteDirectory, IReadOnlyList<string> paths)
     {
         var batchVersion = _uploadBatchVersion;
-        BatchUploadNotice = string.Empty;
+        SetBatchUploadNotice();
+        SetBatchDownloadNotice();
         var validation = Task.Run(() => PrepareUploadBatch(paths, context.Lifetime.Token), context.Lifetime.Token);
         ObserveLateFailure(validation);
         UploadBatch batch;
@@ -382,14 +385,14 @@ public sealed partial class MainViewModel
 
         if (!IsCurrent(context) || batchVersion != _uploadBatchVersion) return;
 
-        var notices = new List<string>();
-        if (batch.Files.Count > 0) notices.Add($"{batch.Files.Count} {(batch.Files.Count == 1 ? "arquivo adicionado à fila" : "arquivos adicionados à fila")}.");
-        if (batch.DirectoryCount > 0) notices.Add($"{batch.DirectoryCount} {(batch.DirectoryCount == 1 ? "pasta ignorada" : "pastas ignoradas")}; o envio de pastas ainda não está disponível.");
-        if (batch.InvalidCount > 0) notices.Add($"{batch.InvalidCount} {(batch.InvalidCount == 1 ? "caminho inválido ignorado" : "caminhos inválidos ignorados")}.");
-        if (batch.DuplicateCount > 0) notices.Add($"{batch.DuplicateCount} {(batch.DuplicateCount == 1 ? "arquivo repetido ignorado" : "arquivos repetidos ignorados")}.");
-        BatchUploadNotice = string.Join(' ', notices);
-        SetStatus($"Upload batch queued: {batch.Files.Count} files; {batch.DirectoryCount} directories, {batch.InvalidCount} invalid paths, and {batch.DuplicateCount} duplicates skipped.",
-            batch.DirectoryCount + batch.InvalidCount > 0 ? "Info" : "Success");
+        var notices = new List<UiMessage>();
+        if (batch.Files.Count > 0) notices.Add(new UiMessage(batch.Files.Count == 1 ? "Vm.Batch.File" : "Vm.Batch.Files", batch.Files.Count));
+        if (batch.DirectoryCount > 0) notices.Add(new UiMessage(batch.DirectoryCount == 1 ? "Vm.Batch.Directory" : "Vm.Batch.Directories", batch.DirectoryCount));
+        if (batch.InvalidCount > 0) notices.Add(new UiMessage(batch.InvalidCount == 1 ? "Vm.Batch.Invalid" : "Vm.Batch.Invalids", batch.InvalidCount));
+        if (batch.DuplicateCount > 0) notices.Add(new UiMessage(batch.DuplicateCount == 1 ? "Vm.Batch.Duplicate" : "Vm.Batch.Duplicates", batch.DuplicateCount));
+        SetBatchUploadNotice(notices.ToArray());
+        SetStatus("Vm.Status.BatchQueued", batch.DirectoryCount + batch.InvalidCount > 0 ? "Info" : "Success",
+            batch.Files.Count, batch.DirectoryCount, batch.InvalidCount, batch.DuplicateCount);
     }
 
     private static UploadBatch PrepareUploadBatch(IReadOnlyList<string> paths, CancellationToken token)
@@ -429,26 +432,12 @@ public sealed partial class MainViewModel
         return new UploadBatch(files, directories, invalid, duplicates);
     }
 
-    private async Task QueueDownloadAsync()
-    {
-        if (_remoteContext is not { } context || SelectedRemoteEntry is not { IsDirectory: false } selected || !CanQueueTransfer()) return;
-        var fileName = RemotePaths.GetSafeLocalFileName(selected.Name);
-        var remoteSource = selected.FullPath;
-        var destination = _interactions.PickDownloadFile(fileName, _loadedLocalPath);
-        if (destination is null || !IsCurrent(context)) return;
-        var job = new TransferItemViewModel(context.Session.Profile, remoteSource,
-            Path.GetFullPath(destination), fileName, TransferDirection.Download, context.Lifetime.Token);
-        job.SetExpectedSize(Math.Max(0, selected.Size));
-        EnqueueTransfer(context, job);
-        await Task.CompletedTask;
-    }
-
     private void EnqueueTransfer(RemoteSessionContext context, TransferItemViewModel job)
     {
         _transferContexts.Add(job, context);
         job.PropertyChanged += TransferChanged;
         TransferJobs.Add(job);
-        if (!_batchAddingTransfers) SetStatus($"Transfer queued: {job.Direction}", "Info");
+        if (!_batchAddingTransfers) SetStatus("Vm.Status.TransferQueued", "Info", new UiMessage(job.Direction == TransferDirection.Upload ? "Vm.Transfer.Upload" : "Vm.Transfer.Download"));
         StartTransferQueue();
     }
 
@@ -502,7 +491,7 @@ public sealed partial class MainViewModel
                     job.SetState(TransferState.Completed);
                     if (IsCurrent(context))
                     {
-                        SetStatus($"Transfer completed: {job.Direction}", "Success");
+                        SetStatus("Vm.Status.TransferCompleted", "Success", new UiMessage(job.Direction == TransferDirection.Upload ? "Vm.Transfer.Upload" : "Vm.Transfer.Download"));
                         if (job.Direction == TransferDirection.Upload
                             && !IsRemoteLoading
                             && RemotePaths.GetParent(job.DestinationPath) == _loadedRemotePath)
@@ -516,7 +505,7 @@ public sealed partial class MainViewModel
                 {
                     if (progress.Last is { } canceledProgress) job.UpdateProgress(canceledProgress);
                     job.SetState(TransferState.Canceled);
-                    if (IsCurrent(context)) SetStatus("Transfer canceled.", "Info");
+                    if (IsCurrent(context)) SetStatus("Vm.Status.TransferCanceled", "Info");
                 }
                 catch (Exception exception)
                 {
@@ -552,14 +541,15 @@ public sealed partial class MainViewModel
     {
         IsTransferQueuePaused = !IsTransferQueuePaused;
         SetStatus(IsTransferQueuePaused
-            ? "Transfer queue paused. The current file will finish before the queue stops."
-            : "Transfer queue resumed.", "Info");
+            ? "Vm.Status.QueuePaused"
+            : "Vm.Status.QueueResumed", "Info");
         if (!IsTransferQueuePaused) StartTransferQueue();
     }
 
     private void CancelAllTransfers()
     {
         _uploadBatchVersion++;
+        _downloadBatchVersion++;
         _suppressTransferQueueStart = true;
         try
         {
@@ -567,7 +557,7 @@ public sealed partial class MainViewModel
             foreach (var job in TransferJobs.Where(job => job.CanCancel)
                 .OrderBy(job => job.State == TransferState.Running ? 1 : 0).ToArray())
                 CancelTransfer(job);
-            SetStatus("Pending transfers canceled. A destination commit already in progress will finish.", "Info");
+            SetStatus("Vm.Status.PendingCanceled", "Info");
         }
         finally
         {
@@ -583,7 +573,7 @@ public sealed partial class MainViewModel
             job.PropertyChanged -= TransferChanged;
             TransferJobs.Remove(job);
         }
-        SetStatus("Completed transfers cleared from the queue.", "Info");
+        SetStatus("Vm.Status.CompletedCleared", "Info");
     }
 
     private async Task OpenTransferFolderAsync(TransferItemViewModel job)
@@ -609,9 +599,9 @@ public sealed partial class MainViewModel
     private void ReportTransferActionFailure(Exception exception)
     {
         // User-provided paths and native Shell messages never enter error logs.
-        SetStatus("The file action could not be completed. Check that the local file or folder still exists and is accessible.", "Error");
-        _interactions.ShowInformation("Não foi possível abrir o arquivo",
-            "Verifique se o arquivo ou a pasta ainda existe e se você tem permissão de acesso. Para copiar um caminho, tente novamente após fechar aplicativos que estejam usando a área de transferência.");
+        SetStatus("Vm.Status.FileActionFailure", "Error");
+        _interactions.ShowInformation(UiText.Get("Vm.FileAction.Title"),
+            UiText.Get("Vm.FileAction.Detail"));
     }
 
     public bool CanRetryTransfer(TransferItemViewModel job)
@@ -686,12 +676,14 @@ public sealed partial class MainViewModel
     private Task StopRemoteSession()
     {
         _uploadBatchVersion++;
+        _downloadBatchVersion++;
         var context = _remoteContext;
         _remoteContext = null;
         _remoteRequestVersion++;
         StopTransferTiming();
         IsTransferQueuePaused = false;
-        BatchUploadNotice = string.Empty;
+        SetBatchUploadNotice();
+        SetBatchDownloadNotice();
         if (context is not null)
         {
             context.Lifetime.Cancel();
@@ -704,9 +696,9 @@ public sealed partial class MainViewModel
         _loadedRemotePath = string.Empty;
         RemotePath = string.Empty;
         _hasRemoteDirectory = false;
-        SelectedRemoteEntry = null;
+        UpdateSelectedRemoteSelection([]);
         IsRemoteLoading = false;
-        RemoteError = string.Empty;
+        SetRemoteError(null);
         _remoteRequiresReconnect = false;
         NotifyRemoteState();
         return _remoteRetirementTask;
@@ -819,29 +811,29 @@ public sealed partial class MainViewModel
         double value = bytes;
         var unit = 0;
         while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
-        return $"{value.ToString(unit == 0 ? "N0" : "N1", CultureInfo.CurrentCulture)} {units[unit]}";
+        return $"{value.ToString(unit == 0 ? "N0" : "N1", UiText.Current.Culture)} {units[unit]}";
     }
     private void ReportRemoteFailure(Exception exception)
     {
         if (exception is RemoteFileException { RequiresReconnect: true }) _remoteRequiresReconnect = true;
-        RemoteError = GetRemoteError(exception);
-        SetStatus(RemoteError, "Error");
+        SetRemoteError(new UiMessage(GetRemoteErrorKey(exception)));
+        SetStatus(_remoteError!, "Error");
         NotifyRemoteState();
     }
-    private static string GetRemoteError(Exception exception) => exception switch
+    private static string GetRemoteErrorKey(Exception exception) => exception switch
     {
-        RemoteFileException { RequiresReconnect: true } => "SFTP cannot continue on this connection. Reconnect the VPS after checking the connection and server identity.",
-        RemoteFileException { Code: RemoteFileErrorCode.PermissionDenied } => "Permission was denied. Check the account and file permissions.",
-        RemoteFileException { Code: RemoteFileErrorCode.NotFound } => "The requested file or directory was not found. Refresh the listing and check the path.",
-        RemoteFileException { Code: RemoteFileErrorCode.AlreadyExists } => "The destination already exists. Confirm replacement before retrying.",
-        RemoteFileException { Code: RemoteFileErrorCode.UnsafePath } => "The selected path or filename is not safe for this operation.",
-        RemoteFileException { Code: RemoteFileErrorCode.UnsupportedReplacement } => "The server cannot replace the destination atomically. Choose another filename.",
-        RemoteFileException { Code: RemoteFileErrorCode.Unavailable } => "SFTP is unavailable for this connection. Check that the server enables SFTP.",
-        RemoteFileException { Code: RemoteFileErrorCode.ConnectionLost } => "The SFTP connection was lost. Reconnect the VPS before continuing.",
-        UnauthorizedAccessException => "Access to the selected local file or folder was denied.",
-        FileNotFoundException or DirectoryNotFoundException => "The selected local file or destination folder was not found.",
-        ArgumentException => "Check the selected file and remote path, then try again.",
-        _ => "The SFTP operation failed. Check the connection and file permissions, then try again."
+        RemoteFileException { RequiresReconnect: true } => "Vm.Remote.Reconnect",
+        RemoteFileException { Code: RemoteFileErrorCode.PermissionDenied } => "Vm.Remote.Permission",
+        RemoteFileException { Code: RemoteFileErrorCode.NotFound } => "Vm.Remote.NotFound",
+        RemoteFileException { Code: RemoteFileErrorCode.AlreadyExists } => "Vm.Remote.AlreadyExists",
+        RemoteFileException { Code: RemoteFileErrorCode.UnsafePath } => "Vm.Remote.UnsafePath",
+        RemoteFileException { Code: RemoteFileErrorCode.UnsupportedReplacement } => "Vm.Remote.UnsupportedReplacement",
+        RemoteFileException { Code: RemoteFileErrorCode.Unavailable } => "Vm.Remote.SftpUnavailable",
+        RemoteFileException { Code: RemoteFileErrorCode.ConnectionLost } => "Vm.Remote.ConnectionLost",
+        UnauthorizedAccessException => "Vm.Remote.LocalPermission",
+        FileNotFoundException or DirectoryNotFoundException => "Vm.Remote.LocalNotFound",
+        ArgumentException => "Vm.Remote.Values",
+        _ => "Vm.Remote.Generic"
     };
     private static void ObserveLateFailure(Task task)
         => _ = task.ContinueWith(failed => _ = failed.Exception, CancellationToken.None,

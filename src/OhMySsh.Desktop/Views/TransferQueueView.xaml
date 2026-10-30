@@ -1,27 +1,38 @@
 <UserControl x:Class="OhMySsh.Desktop.Views.TransferQueueView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:OhMySsh.Desktop.Localization"
              AllowDrop="True" PreviewDragOver="Files_DragOver" PreviewDrop="Files_Drop" DragLeave="Files_DragLeave">
+    <UserControl.Resources>
+        <Style x:Key="TransferCellStyle" TargetType="DataGridCell" BasedOn="{StaticResource FileCellStyle}">
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Padding="12,7">
+        <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Padding="12,6">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                <Grid VerticalAlignment="Center" Margin="0,0,16,0">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                     <ComboBox x:Name="TransferFilterBox" ItemsSource="{Binding TransferFilters}" DisplayMemberPath="Label" SelectedValuePath="Filter"
                               SelectedValue="{Binding SelectedTransferFilter, Mode=TwoWay}" Style="{StaticResource FluentComboBoxStyle}"
-                              Width="146" MinHeight="28" Padding="8,3" FontSize="11" AutomationProperties.Name="Filtrar transferências" />
-                    <TextBlock Text="{Binding PendingSummary}" ToolTip="{Binding PendingSummary}" FontSize="11" Margin="12,0,0,0" VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextSecondaryBrush}" MaxWidth="240" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                              Width="150" MinHeight="28" Padding="8,3" FontSize="12" AutomationProperties.Name="{l:Loc Dialog.FilterTransfers}" />
+                    <TextBlock Grid.Column="1" Text="{Binding TransferSummary}" ToolTip="{Binding TransferSummary}" FontSize="11" Margin="10,0,0,0"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding PendingSummary}" ToolTip="{Binding PendingSummary}"
+                               FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Grid>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="ToggleTransferQueueButton" Command="{Binding ToggleTransferQueueCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" MinHeight="28" FontSize="11"
-                            ToolTip="Pausa o início dos próximos arquivos. A transferência atual continua."
+                            Style="{StaticResource SecondaryButtonStyle}" Padding="9,5" MinHeight="30" FontSize="12"
+                            ToolTip="{l:Loc Dialog.PauseQueueHint}"
                             AutomationProperties.Name="{Binding QueuePauseLabel}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="{StaticResource IconFont}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0">
@@ -39,86 +50,119 @@
                             <TextBlock Text="{Binding QueuePauseLabel}" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="CancelAllTransfersButton" Content="Cancelar todas" Command="{Binding CancelAllTransfersCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" MinHeight="28" FontSize="11" Margin="6,0,0,0"
-                            ToolTip="Cancela os arquivos pendentes e solicita o cancelamento da transferência atual."
-                            AutomationProperties.Name="Cancelar todas as transferências" />
-                    <Button x:Name="ClearCompletedTransfersButton" Content="Limpar concluídas" Command="{Binding ClearCompletedTransfersCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" MinHeight="28" FontSize="11" Margin="6,0,0,0"
-                            ToolTip="Remove da lista apenas as transferências concluídas com sucesso."
-                            AutomationProperties.Name="Limpar transferências concluídas" />
+                    <Button x:Name="CancelAllTransfersButton" Content="{l:Loc Dialog.CancelAll}" Command="{Binding CancelAllTransfersCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}" Padding="9,5" MinHeight="30" FontSize="12" Margin="6,0,0,0"
+                            ToolTip="{l:Loc Dialog.CancelAllHint}"
+                            AutomationProperties.Name="{l:Loc Dialog.CancelAllName}" />
+                    <Button x:Name="ClearCompletedTransfersButton" Content="{l:Loc Dialog.ClearCompleted}" Command="{Binding ClearCompletedTransfersCommand}"
+                            Style="{StaticResource SecondaryButtonStyle}" Padding="9,5" MinHeight="30" FontSize="12" Margin="6,0,0,0"
+                            ToolTip="{l:Loc Dialog.ClearCompletedHint}"
+                            AutomationProperties.Name="{l:Loc Dialog.ClearCompletedName}" />
                 </StackPanel>
             </Grid>
         </Border>
-        <TextBlock Grid.Row="1" Text="{Binding BatchUploadNotice}" Margin="12,6,12,8" FontSize="11" TextWrapping="Wrap"
-                   Foreground="{DynamicResource TextSecondaryBrush}" Visibility="{Binding HasBatchUploadNotice, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
+        <StackPanel Grid.Row="1" MaxHeight="36">
+            <TextBlock Text="{Binding BatchUploadNotice}" Margin="12,1" FontSize="11" MaxHeight="16" TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource TextSecondaryBrush}" Visibility="{Binding HasBatchUploadNotice, Converter={StaticResource BoolToVisibility}}"
+                       AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="{Binding BatchUploadNotice}">
+                <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding BatchUploadNotice}" TextWrapping="Wrap" MaxWidth="600" /></ToolTip></TextBlock.ToolTip>
+            </TextBlock>
+            <TextBlock Text="{Binding BatchDownloadNotice}" Margin="12,1" FontSize="11" MaxHeight="16" TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource TextSecondaryBrush}" Visibility="{Binding HasBatchDownloadNotice, Converter={StaticResource BoolToVisibility}}"
+                       AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="{Binding BatchDownloadNotice}">
+                <TextBlock.ToolTip><ToolTip><TextBlock Text="{Binding BatchDownloadNotice}" TextWrapping="Wrap" MaxWidth="600" /></ToolTip></TextBlock.ToolTip>
+            </TextBlock>
+        </StackPanel>
         <DataGrid x:Name="TransferJobsGrid" Grid.Row="2" ItemsSource="{Binding FilteredTransferJobs}" Style="{StaticResource FileGridStyle}"
-                  AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}"
-                  RowHeight="64" IsReadOnly="True" CanUserSortColumns="False" AutomationProperties.Name="Fila de transferências">
+                  AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource TransferCellStyle}"
+                  RowHeight="56" ColumnHeaderHeight="30" IsReadOnly="True" CanUserSortColumns="False" CanUserResizeColumns="True"
+                  AutomationProperties.Name="{l:Loc Dialog.TransferQueue}">
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="Arquivo / VPS" Width="190" MinWidth="130">
+                <DataGridTemplateColumn Header="{l:Loc Dialog.FileVps}" Width="2*" MinWidth="200">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
-                                <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" ToolTip="{Binding DestinationPath}" />
-                                <TextBlock FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"><Run Text="{Binding DirectionLabel, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Profile.Host, Mode=OneWay}" /></TextBlock>
+                            <StackPanel VerticalAlignment="Center" Margin="8,0">
+                                <StackPanel.ToolTip>
+                                    <ToolTip>
+                                        <StackPanel MaxWidth="600">
+                                            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" />
+                                            <TextBlock Text="{l:Loc Dialog.Source}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" />
+                                            <TextBlock Text="{Binding SourcePath}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                                            <TextBlock Text="{l:Loc Dialog.Destination}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" />
+                                            <TextBlock Text="{Binding DestinationPath}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </ToolTip>
+                                </StackPanel.ToolTip>
+                                <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                <TextBlock FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"><Run Text="{Binding DirectionLabel, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Profile.Host, Mode=OneWay}" /></TextBlock>
                             </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Progresso" Width="*" MinWidth="150">
+                <DataGridTemplateColumn Header="{l:Loc Dialog.Progress}" Width="1.5*" MinWidth="180">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Grid Margin="0,6,8,0" VerticalAlignment="Center">
-                                <Grid.RowDefinitions><RowDefinition Height="6" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                <ProgressBar Maximum="100" Value="{Binding ProgressPercent, Mode=OneWay}" Height="5" />
-                                <Grid Grid.Row="1" Margin="0,4,0,0">
+                            <Grid VerticalAlignment="Center" Margin="8,0,12,0">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="8" /></Grid.RowDefinitions>
+                                <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding BytesLabel}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" />
-                                    <TextBlock Grid.Column="1" Text="{Binding ProgressPercent, StringFormat={}{0:0.#}%}" FontSize="10" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding BytesLabel}" ToolTip="{Binding BytesLabel}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding ProgressPercent, StringFormat={}{0:0.#}%}" FontSize="12" FontWeight="SemiBold" Margin="8,0,0,0" />
                                 </Grid>
+                                <ProgressBar Grid.Row="1" Maximum="100" Value="{Binding ProgressPercent, Mode=OneWay}" Height="8" />
                             </Grid>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Velocidade" Width="102">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate><TextBlock Text="{Binding SpeedLabel}" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0" /></DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Restante" Width="96">
+                <DataGridTemplateColumn Header="{l:Loc Dialog.SpeedAndTime}" Width="125" MinWidth="110">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding RemainingTimeLabel}" FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0"
-                                       ToolTip="{Binding ElapsedTimeLabel, StringFormat='Tempo decorrido: {0}'}" />
+                            <StackPanel VerticalAlignment="Center" Margin="8,0">
+                                <TextBlock Text="{Binding SpeedLabel}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{l:Loc Dialog.SpeedValue, Value={Binding SpeedLabel}}" AutomationProperties.Name="{l:Loc Dialog.SpeedValue, Value={Binding SpeedLabel}}" />
+                                <Grid Margin="0,3,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="15" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <Grid.ToolTip>
+                                        <ToolTip>
+                                            <StackPanel>
+                                                <TextBlock Text="{l:Loc Dialog.RemainingValue, Value={Binding RemainingTimeLabel}}" />
+                                                <TextBlock Text="{l:Loc Dialog.Elapsed, Value={Binding ElapsedTimeLabel}}" Margin="0,3,0,0" />
+                                            </StackPanel>
+                                        </ToolTip>
+                                    </Grid.ToolTip>
+                                    <TextBlock Text="&#xE823;" FontFamily="{StaticResource IconFont}" FontSize="10" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding RemainingTimeLabel}" FontSize="11" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               AutomationProperties.Name="{l:Loc Dialog.RemainingValue, Value={Binding RemainingTimeLabel}}" />
+                                </Grid>
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Status" Width="105">
+                <DataGridTemplateColumn Header="{l:Loc Dialog.Status}" Width="105" MinWidth="90">
                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate><TextBlock Text="{Binding StatusLabel}" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="{Binding Error}" AutomationProperties.HelpText="{Binding Error}" /></DataTemplate>
+                        <DataTemplate><TextBlock Text="{Binding StatusLabel}" FontSize="11" Margin="8,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding FailureReason}" AutomationProperties.HelpText="{Binding FailureReason}" /></DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Ações" Width="166">
+                <DataGridTemplateColumn Header="{l:Loc Dialog.Actions}" Width="145" MinWidth="145">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Grid VerticalAlignment="Center" Margin="8,0,8,0">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="28" /></Grid.ColumnDefinitions>
-                                <Button Content="Cancelar" Command="{Binding DataContext.CancelTransferCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                            <Grid VerticalAlignment="Center" Margin="6,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions>
+                                <Button Content="{l:Loc Dialog.Cancel}" Command="{Binding DataContext.CancelTransferCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                         CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="8,4" MinHeight="28"
                                         Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibility}}"
-                                        AutomationProperties.Name="{Binding FileName, StringFormat='Cancelar transferência de {0}'}" />
-                                <Button Content="Tentar novamente" Command="{Binding DataContext.RetryTransferCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                        CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="8,4" MinHeight="28"
+                                        AutomationProperties.Name="{l:Loc Dialog.CancelFile, Value={Binding FileName}}" />
+                                <Button Content="{l:Loc Dialog.Retry}" Command="{Binding DataContext.RetryTransferCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                        CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="3,4" MinHeight="28"
                                         Visibility="{Binding CanRetry, Converter={StaticResource BoolToVisibility}}"
-                                        ToolTip="Conecte-se à mesma VPS para repetir esta operação. O destino será verificado novamente antes de sobrescrever."
+                                        ToolTip="{l:Loc Dialog.RetryHint}"
                                         ToolTipService.ShowOnDisabled="True"
-                                        AutomationProperties.Name="{Binding FileName, StringFormat='Tentar novamente a transferência de {0}'}" />
-                                <Button Content="Mostrar arquivo" Command="{Binding DataContext.RevealDownloadedFileCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                        AutomationProperties.Name="{l:Loc Dialog.RetryFile, Value={Binding FileName}}" />
+                                <Button Content="{l:Loc Dialog.ShowFile}" Command="{Binding DataContext.RevealDownloadedFileCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                         CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="6,4" MinHeight="28"
-                                        Visibility="{Binding IsCompletedDownload, Converter={StaticResource BoolToVisibility}}" ToolTip="Selecionar o arquivo baixado no Explorador de Arquivos" />
-                                <Button Content="Abrir pasta" Command="{Binding DataContext.OpenTransferFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
-                                        CommandParameter="{Binding}" FontSize="11" Padding="6,4" MinHeight="28" ToolTip="Abrir a pasta local do arquivo enviado">
+                                        Visibility="{Binding IsCompletedDownload, Converter={StaticResource BoolToVisibility}}" ToolTip="{l:Loc Dialog.ShowFileHint}" />
+                                <Button Content="{l:Loc Dialog.OpenFolder}" Command="{Binding DataContext.OpenTransferFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                        CommandParameter="{Binding}" FontSize="11" Padding="6,4" MinHeight="28" ToolTip="{l:Loc Dialog.OpenFolderHint}">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -131,20 +175,20 @@
                                 <Button Grid.Column="1" Command="{Binding DataContext.ShowTransferDetailsCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}"
                                         Style="{StaticResource IconButtonStyle}" Width="28" Height="28" Padding="5" Margin="4,0,0,0"
                                         Visibility="{Binding HasFailureDetails, Converter={StaticResource BoolToVisibility}}"
-                                        ToolTip="Ver motivo da falha e ação sugerida" AutomationProperties.Name="Detalhes do erro de transferência">
+                                        ToolTip="{l:Loc Dialog.FailureDetailsHint}" AutomationProperties.Name="{l:Loc Dialog.FailureDetails}">
                                     <TextBlock Text="&#xE946;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                 </Button>
                                 <Button Grid.Column="1" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                         Click="TransferActions_Click" Style="{StaticResource IconButtonStyle}" Width="28" Height="28" Padding="5" Margin="4,0,0,0"
-                                        Visibility="{Binding IsCompleted, Converter={StaticResource BoolToVisibility}}" ToolTip="Mais ações" AutomationProperties.Name="Ações da transferência concluída">
+                                        Visibility="{Binding IsCompleted, Converter={StaticResource BoolToVisibility}}" ToolTip="{l:Loc Dialog.MoreActions}" AutomationProperties.Name="{l:Loc Dialog.CompletedActions}">
                                     <TextBlock Text="&#xE712;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                     <Button.ContextMenu>
                                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
-                                            <MenuItem Header="Abrir pasta local" Command="{Binding Tag.OpenTransferFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}" />
-                                            <MenuItem Header="Selecionar arquivo baixado" Command="{Binding Tag.RevealDownloadedFileCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}"
+                                            <MenuItem Header="{l:Loc Dialog.OpenLocalFolder}" Command="{Binding Tag.OpenTransferFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}" />
+                                            <MenuItem Header="{l:Loc Dialog.SelectDownload}" Command="{Binding Tag.RevealDownloadedFileCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}"
                                                       Visibility="{Binding IsCompletedDownload, Converter={StaticResource BoolToVisibility}}" />
                                             <Separator />
-                                            <MenuItem Header="Copiar caminho remoto" Command="{Binding Tag.CopyRemotePathCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}" />
+                                            <MenuItem Header="{l:Loc Dialog.CopyRemotePath}" Command="{Binding Tag.CopyRemotePathCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}" />
                                         </ContextMenu>
                                     </Button.ContextMenu>
                                 </Button>
@@ -160,8 +204,8 @@
                    Visibility="{Binding HasVisibleTransfers, Converter={StaticResource InverseBoolToVisibility}}" />
         <Border x:Name="TransferDropOverlay" Grid.RowSpan="3" Visibility="Collapsed" IsHitTestVisible="False" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="6" Padding="18">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="Solte para adicionar os arquivos à fila" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
-                <TextBlock Text="Um arquivo será enviado por vez à pasta remota atual." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,7,0,0" TextWrapping="Wrap" TextAlignment="Center" />
+                <TextBlock Text="{l:Loc Dialog.DropFiles}" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock Text="{l:Loc Dialog.DropFilesHint}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,7,0,0" TextWrapping="Wrap" TextAlignment="Center" />
             </StackPanel>
         </Border>
     </Grid>

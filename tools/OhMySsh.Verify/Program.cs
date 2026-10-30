@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using OhMySsh.Core.Abstractions;
+using OhMySsh.Core.Localization;
 using OhMySsh.Core.Models;
 using OhMySsh.Desktop;
 using OhMySsh.Desktop.Converters;
@@ -96,6 +97,7 @@ internal sealed partial class VerificationRunner(Application application, string
     {
         await CheckAsync("XAML: shared resources", () =>
         {
+            LocalizationService.Current.Initialize(application, Path.Combine(outputDirectory, "preferences", "settings.json"));
             application.Resources.MergedDictionaries.Add(new ResourceDictionary
             {
                 Source = new Uri("pack://application:,,,/OhMySsh;component/Themes/Workbench.xaml")
@@ -127,6 +129,7 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("SSH disclosure: masked fields, Windows approval, and exact address copying", VerifyCredentialDisclosureBoundaryAsync);
         await CheckAsync("SSH disclosure lifecycle: independent approval, expiry, edits, and late results", VerifyCredentialDisclosureLifecycleAsync);
         await CheckAsync("Windows credential protection: native contracts and clipboard privacy metadata", VerifyWindowsCredentialProtectionAsync);
+        await CheckAsync("Local Windows password: exact account routing, native contracts, and fail-closed guards", VerifyLocalWindowsPasswordAsync);
         await CheckAsync("Protected clipboard: failed publication retains bounded owned-entry cleanup", VerifyCredentialClipboardPublicationAsync);
         await CheckAsync("SSH prompts: cancellation closes pending credential and host dialogs", VerifyPromptCancellationAsync);
         await CheckAsync("SFTP browser: initialization, failed navigation, and stale results", VerifyRemoteBrowsingAsync);
@@ -140,7 +143,11 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("Transfer shortcuts: completed local and remote targets", VerifyCompletedTransferActionsAsync);
         await CheckAsync("Transfer filters: live states and full-queue pending volume", VerifyTransferFiltersAndSummaryAsync);
         await CheckAsync("Transfer batch: multiple selection, picker, drop, and captured targets", VerifyTransferBatchUploadsAsync);
-        await CheckAsync("SFTP interface: populated remote files and queue in both themes", CaptureSftpWorkspaceAsync);
+        await CheckAsync("Remote download selection: native grid, single-file picker, serial content, and progress", VerifyRemoteDownloadSelectionAsync);
+        await CheckAsync("Remote download batch: rejected names, collisions, overwrite decisions, and canceled picker", VerifyRemoteDownloadFilteringAsync);
+        await CheckAsync("Remote download capture: modal picker changes and selection lifecycle", VerifyRemoteDownloadCaptureAsync);
+        await CheckAsync("Remote download cancellation: modal picker, batch insertion, and retired sessions", VerifyRemoteDownloadCancellationAsync);
+        await CheckAsync("SFTP workspace: populated queue, sizes, languages, themes, splitters, and expansion", CaptureSftpWorkspaceAsync);
         await CheckAsync("XAML: empty and saved connection center in both themes", async () =>
         {
             await CaptureConnectionsPageAsync(false);
@@ -151,6 +158,11 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("XAML: editor and server validation", VerifyConnectionEditorAsync);
         await CheckAsync("XAML: QA editor in light and dark themes", CaptureEditorAsync);
         await CheckAsync("Themes and navigation preserve profiles, selection, and files", VerifyThemeNavigationStateAsync);
+        await CheckAsync("Localization: complete catalogs, placeholders, and source references", VerifyLocalizationCatalogsAsync);
+        await CheckAsync("Localization: isolated preference persistence, fallback, and UI dispatch", VerifyLanguagePreferencesAsync);
+        await CheckAsync("Localization: existing models refresh text, numbers, and dates", VerifyLocalizedModelRefreshAsync);
+        await CheckAsync("Localization: live settings picker and workspace in all languages and themes", VerifyLiveLanguagePickerAsync);
+        await CheckAsync("Localization: existing dialogs preserve sensitive values in all languages and themes", VerifyLocalizedDialogsAsync);
         await CheckAsync("WPF bindings: no failures", () =>
         {
             Require(_bindingErrors.Messages.Count == 0, string.Join(Environment.NewLine, _bindingErrors.Messages));
@@ -686,9 +698,9 @@ internal sealed partial class VerificationRunner(Application application, string
             new RecordingInteractions(), service, (kind, message) => logs.Add($"{kind}: {message}"));
         await viewModel.InitializeAsync();
         await viewModel.ConnectCommand.ExecuteAsync(profile);
-        Require(viewModel.StatusMessage.StartsWith("Connected to", StringComparison.Ordinal), "Successful connection status is not in English.");
+        Require(viewModel.StatusMessage == UiText.Format("Vm.Status.Connected", profile.Host), "Successful connection status did not use the active interface language.");
         await viewModel.DisconnectCommand.ExecuteAsync();
-        Require(viewModel.StatusMessage.StartsWith("Disconnected.", StringComparison.Ordinal), "Disconnection status is not in English.");
+        Require(viewModel.StatusMessage == UiText.Get("Vm.Status.Disconnected"), "Disconnection status did not use the active interface language.");
         foreach (var failure in new[]
         {
             new RemoteConnectionException(RemoteConnectionErrorCode.AuthenticationFailed, "SSH authentication failed. Check the username and credentials."),
@@ -697,7 +709,8 @@ internal sealed partial class VerificationRunner(Application application, string
         {
             service.ConnectHandler = (_, _) => Task.FromException<IRemoteConnectionSession>(failure);
             await viewModel.ConnectCommand.ExecuteAsync(profile);
-            Require(viewModel.ConnectionError == failure.Message, "The connection did not retain a safe English error.");
+            var errorKey = failure.Code == RemoteConnectionErrorCode.AuthenticationFailed ? "Vm.Connect.Authentication" : "Vm.Connect.Timeout";
+            Require(viewModel.ConnectionError == UiText.Get(errorKey), "The connection did not render the safe typed error in the active interface language.");
         }
         const string secretSentinel = "QA_SECRET_MUST_NOT_APPEAR";
         service.ConnectHandler = (_, _) => Task.FromException<IRemoteConnectionSession>(new IOException(secretSentinel));
@@ -708,14 +721,14 @@ internal sealed partial class VerificationRunner(Application application, string
         var pending = viewModel.ConnectCommand.ExecuteAsync(profile);
         viewModel.CancelConnectionCommand.Execute(null);
         await pending;
-        Require(viewModel.StatusMessage == "Connection canceled.", "Cancellation status is not in English.");
+        Require(viewModel.StatusMessage == UiText.Get("Vm.Status.Canceled"), "Cancellation status did not use the active interface language.");
         completion.SetCanceled();
         Require(logs.All(message => !message.Contains(secretSentinel, StringComparison.Ordinal)
             && !message.Contains("Conectando", StringComparison.Ordinal) && !message.Contains("Desconectado", StringComparison.Ordinal)
             && !message.Contains("cancelada", StringComparison.Ordinal)), "Connection diagnostics leaked a secret or Portuguese status text.");
-        Require(logs.Any(message => message.Contains("Connected to", StringComparison.Ordinal))
-            && logs.Any(message => message.Contains("authentication failed", StringComparison.Ordinal))
-            && logs.Any(message => message.Contains("timed out", StringComparison.Ordinal)), "Expected success and failure diagnostics were not recorded.");
+        Require(logs.Any(message => message.Contains(UiText.English("Vm.Status.Connected", profile.Host), StringComparison.Ordinal))
+            && logs.Any(message => message.Contains(UiText.English("Vm.Connect.Authentication"), StringComparison.Ordinal))
+            && logs.Any(message => message.Contains(UiText.English("Vm.Connect.Timeout"), StringComparison.Ordinal)), "Expected safe English success and failure diagnostics were not recorded.");
         await viewModel.ShutdownAsync();
     }
 
@@ -756,7 +769,7 @@ internal sealed partial class VerificationRunner(Application application, string
                 Require(!remember.IsEnabled, "Manual credentials offer persistent storage.");
                 remember.IsChecked = true; // A programmatic change must not bypass the restriction.
                 ((PasswordBox)manual.FindName("SecretBox")).Password = "fixture-only";
-                var connect = FindVisualChild<Button>(manual, button => Equals(button.Content, "Connect"))
+                var connect = FindVisualChild<Button>(manual, button => button.Name == "ConnectButton")
                     ?? throw new InvalidOperationException("The credential Connect button could not be found.");
                 connect.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
@@ -1285,6 +1298,11 @@ internal sealed class RecordingInteractions : IDesktopInteractionService
     public Queue<string?> UploadFiles { get; } = new();
     public Queue<IReadOnlyList<string>> UploadFileBatches { get; } = new();
     public Queue<string?> DownloadFiles { get; } = new();
+    public Queue<string?> DownloadFolders { get; } = new();
+    public List<(string FileName, string InitialDirectory)> DownloadFileRequests { get; } = [];
+    public List<string> DownloadFolderRequests { get; } = [];
+    public Func<string, string, string?>? DownloadFileHandler { get; set; }
+    public Func<string, string?>? DownloadFolderHandler { get; set; }
     public List<string> OpenedTransferFolders { get; } = [];
     public List<string> RevealedTransferFiles { get; } = [];
     public List<TransferItemViewModel> TransferDetailsRequests { get; } = [];
@@ -1307,7 +1325,18 @@ internal sealed class RecordingInteractions : IDesktopInteractionService
     public IReadOnlyList<string> PickUploadFiles(string initialDirectory)
         => UploadFileBatches.TryDequeue(out var batch) ? batch
             : PickUploadFile(initialDirectory) is { } path ? [path] : [];
-    public string? PickDownloadFile(string suggestedFileName, string initialDirectory) => DownloadFiles.TryDequeue(out var path) ? path : null;
+    public string? PickDownloadFile(string suggestedFileName, string initialDirectory)
+    {
+        DownloadFileRequests.Add((suggestedFileName, initialDirectory));
+        return DownloadFileHandler is { } handler ? handler(suggestedFileName, initialDirectory)
+            : DownloadFiles.TryDequeue(out var path) ? path : null;
+    }
+    public string? PickDownloadFolder(string initialDirectory)
+    {
+        DownloadFolderRequests.Add(initialDirectory);
+        return DownloadFolderHandler is { } handler ? handler(initialDirectory)
+            : DownloadFolders.TryDequeue(out var path) ? path : null;
+    }
     public Task<bool> ConfirmOverwriteAsync(string destination, bool isRemote, CancellationToken cancellationToken = default)
     {
         OverwriteCalls++;

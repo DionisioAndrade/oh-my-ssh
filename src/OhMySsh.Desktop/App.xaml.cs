@@ -1,7 +1,7 @@
-using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Windows;
+using OhMySsh.Core.Localization;
 using OhMySsh.Desktop.Services;
 using OhMySsh.Desktop.ViewModels;
 using OhMySsh.Infrastructure.Files;
@@ -22,8 +22,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.GetCultureInfo("pt-BR");
-        CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("pt-BR");
+        LocalizationService.Current.Initialize(this);
         ThemeService.Current.Initialize(this);
 
         // Only one writer owns the local profile file in a Windows session.
@@ -37,7 +36,7 @@ public partial class App : Application
             }
             catch (WaitHandleCannotBeOpenedException)
             {
-                MessageBox.Show("O oh-my-ssh já está aberto. Use o ícone na bandeja para restaurar a janela.",
+                MessageBox.Show(UiText.Get("App.AlreadyOpen"),
                     "oh-my-ssh", MessageBoxButton.OK, MessageBoxImage.Information);
             }
 
@@ -64,7 +63,7 @@ public partial class App : Application
             // Record a safe failure category; raw exception text can contain supplied secrets.
             ApplicationLog.WriteFailure("Unhandled UI operation", args.Exception);
 
-            MessageBox.Show(window, "Não foi possível concluir a operação. Feche e abra o aplicativo se o problema continuar.",
+            MessageBox.Show(window, UiText.Get("App.OperationFailed"),
                 "oh-my-ssh", MessageBoxButton.OK, MessageBoxImage.Error);
             args.Handled = true;
         };

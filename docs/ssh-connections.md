@@ -15,7 +15,7 @@ If the application is already running, this script restores its existing window 
 1. Enter a hostname, SSH port, username, and protocol in the manual form, or choose a saved VPS.
 2. For private-key authentication, set the local private-key path in the advanced connection settings. An empty path selects password authentication.
 3. Set the connection timeout in the advanced settings if needed. The default is 30 seconds; valid values are 1–300 seconds. The transport deadline starts after credential entry and includes the host-verification dialog.
-4. Select Connect and provide the requested password or key passphrase. Unencrypted private keys use an empty passphrase.
+4. Select Connect and provide the requested VPS password or private-key password (passphrase). The private-key password protects the key file; leave it empty for an unencrypted key.
 5. For an unknown server, compare its SHA-256 host fingerprint with a value obtained from the server administrator through a trusted channel. Select Trust once, Trust and remember, or Cancel.
 6. The VPS dashboard opens after authentication succeeds. Disconnect returns to the connection screen and preserves saved profiles.
 
@@ -33,9 +33,11 @@ The private-key field is a file path, not a password field. Leave it empty for p
 
 ### Reveal and copy
 
-The authentication dialog starts with a masked password or passphrase. **Show** and **Copy password** (or **Copy passphrase**) require a fresh native Windows account-password check for each action. Only credentials validated for the same Windows user running the application authorize disclosure. Canceling, using another account, a failed password, an unsupported credential type, or an inactive/closed dialog leaves the secret hidden and does not copy it. This check protects disclosure; SSH connection and opt-in vault reuse keep their existing behavior.
+The authentication dialog starts with a masked VPS password or private-key password. **Show** and **Copy password** (or **Copy key password**) require a fresh native Windows account-password check for each action. Only credentials validated for the same Windows user running the application authorize disclosure. Canceling, using another account, a failed password, an unsupported credential type, or an inactive/closed dialog leaves the secret hidden and does not copy it. This check protects disclosure; SSH connection and opt-in vault reuse keep their existing behavior.
 
 The check uses the Windows account password. Windows Hello PIN/biometric and passwordless-only accounts are not supported by this password-verification path; unavailable verification fails closed. The Windows password is used only for native local verification and is not stored by the application or sent to the VPS.
+
+For a local Windows account, the native prompt fixes the username to `COMPUTER\user` and requests that account's local Windows password. The application validates it against the computer's local account database, then requires the authenticated token's SID to match the user running the application. A Microsoft account password or SSH/VPS password does not substitute for this local account password.
 
 Revealed text hides after 15 seconds, on focus loss, when the secret changes, or when connecting, canceling, or closing. The temporary display has no undo history or built-in selection/copy menu; use the guarded copy button. Explicit secret copies opt out of Windows clipboard history/cloud upload and schedule owned-entry cleanup after 30 seconds, retrying when the clipboard is busy. Cleanup is armed before publishing, including when Windows reports an error after partially publishing the copy. Earlier pending entries keep their own cleanup deadlines if a later copy fails. A later unrelated clipboard entry is preserved. Cleanup is best effort; other software can still read the current clipboard while its authorized secret entry exists, and application/native immutable string copies cannot be guaranteed to be erased from process memory.
 
@@ -49,6 +51,7 @@ The application does not load an SSH agent, OpenSSH configuration files, or the 
 | --- | --- |
 | Saved, non-secret profiles | `%LocalAppData%\OhMySsh\connections.json` |
 | Trusted server identities | `%LocalAppData%\OhMySsh\known-hosts.json` |
+| Interface language preference | `%LocalAppData%\OhMySsh\settings.json` |
 | Application diagnostics | `%LocalAppData%\OhMySsh\logs\application.log` |
 | Opt-in saved credentials | Windows Credential Manager, scoped to the profile and connection settings |
 

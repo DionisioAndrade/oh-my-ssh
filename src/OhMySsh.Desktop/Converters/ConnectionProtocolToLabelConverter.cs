@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows.Data;
 using OhMySsh.Core.Models;
+using OhMySsh.Core.Localization;
 
 namespace OhMySsh.Desktop.Converters;
 
@@ -12,7 +13,7 @@ public sealed class ConnectionProtocolToLabelConverter : IValueConverter
         ConnectionProtocol.Sftp => "SFTP",
         ConnectionProtocol.Ftp => "FTP",
         ConnectionProtocol.Ftps => "FTPS",
-        _ => "Conexão"
+        _ => UiText.Get("Vm.Connection")
     };
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;

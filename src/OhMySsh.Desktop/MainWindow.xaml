@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:views="clr-namespace:OhMySsh.Desktop.Views"
+        xmlns:l="clr-namespace:OhMySsh.Desktop.Localization"
         Title="oh-my-ssh" Width="1440" Height="950" MinWidth="1180" MinHeight="800"
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
         Background="{DynamicResource AppBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
@@ -19,20 +20,20 @@
         <Grid Background="{DynamicResource ChromeBrush}">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                <Button x:Name="BackButton" Style="{StaticResource IconButtonStyle}" Click="Back_Click" ToolTip="Voltar" AutomationProperties.Name="Voltar" shell:WindowChrome.IsHitTestVisibleInChrome="True"><TextBlock Text="&#xE72B;" Style="{StaticResource GlyphStyle}" FontSize="15"/></Button>
+                <Button x:Name="BackButton" Style="{StaticResource IconButtonStyle}" Click="Back_Click" ToolTip="{l:Loc Shell.Back}" AutomationProperties.Name="{l:Loc Shell.Back}" shell:WindowChrome.IsHitTestVisibleInChrome="True"><TextBlock Text="&#xE72B;" Style="{StaticResource GlyphStyle}" FontSize="15"/></Button>
                 <Border Width="23" Height="23" CornerRadius="4" Margin="13,0,12,0"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#9B67ED"/><GradientStop Color="#38149A" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="›_" FontFamily="{StaticResource MonoFont}" FontSize="15" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
                 <TextBlock Text="oh-my-ssh" FontSize="13" VerticalAlignment="Center"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="18,0" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" shell:WindowChrome.IsHitTestVisibleInChrome="True">
                 <Ellipse Width="6" Height="6" Fill="{DynamicResource SuccessBrush}" Margin="0,0,9,0" />
                 <TextBlock Text="{Binding ActiveConnection.Name}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" MaxWidth="230" Margin="0,0,12,0" />
-                <Button Content="Desconectar" Command="{Binding DisconnectCommand}" Style="{StaticResource SecondaryButtonStyle}" MinHeight="30" Padding="10,4" FontSize="12" />
+                <Button Content="{l:Loc Shell.Disconnect}" Command="{Binding DisconnectCommand}" Style="{StaticResource SecondaryButtonStyle}" MinHeight="30" Padding="10,4" FontSize="12" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button x:Name="ThemeToggleButton" Style="{StaticResource ChromeButtonStyle}" Click="ThemeToggle_Click" ToolTip="Alternar tema claro e escuro" AutomationProperties.Name="Alternar tema"><TextBlock x:Name="ThemeToggleGlyph" Text="&#xE708;" Style="{StaticResource GlyphStyle}" FontSize="15"/></Button>
-                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE921;" Click="Minimize_Click" ToolTip="Minimizar" AutomationProperties.Name="Minimizar"/>
-                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE922;" Click="Maximize_Click" ToolTip="Maximizar ou restaurar" AutomationProperties.Name="Maximizar ou restaurar"/>
-                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE8BB;" Click="Close_Click" ToolTip="Fechar" AutomationProperties.Name="Fechar"/>
+                <Button x:Name="ThemeToggleButton" Style="{StaticResource ChromeButtonStyle}" Click="ThemeToggle_Click" ToolTip="{l:Loc Shell.ToggleThemeHint}" AutomationProperties.Name="{l:Loc Shell.ToggleTheme}"><TextBlock x:Name="ThemeToggleGlyph" Text="&#xE708;" Style="{StaticResource GlyphStyle}" FontSize="15"/></Button>
+                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE921;" Click="Minimize_Click" ToolTip="{l:Loc Shell.Minimize}" AutomationProperties.Name="{l:Loc Shell.Minimize}"/>
+                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE922;" Click="Maximize_Click" ToolTip="{l:Loc Shell.MaximizeRestore}" AutomationProperties.Name="{l:Loc Shell.MaximizeRestore}"/>
+                <Button Style="{StaticResource ChromeButtonStyle}" Content="&#xE8BB;" Click="Close_Click" ToolTip="{l:Loc Shell.Close}" AutomationProperties.Name="{l:Loc Shell.Close}"/>
             </StackPanel>
         </Grid>
         <Grid x:Name="NavigationLayout" Grid.Row="1">
@@ -40,39 +41,39 @@
             <Grid Background="{DynamicResource SidebarBrush}">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                 <StackPanel Margin="0,8,0,10">
-                    <RadioButton x:Name="ConnectionsNav" Tag="connections" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Conexões" VerticalAlignment="Center" /></StackPanel></RadioButton>
-                    <RadioButton x:Name="HomeNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="home" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Painel da VPS" VerticalAlignment="Center" /></StackPanel></RadioButton>
-                    <RadioButton x:Name="FilesNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="files" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Arquivos" VerticalAlignment="Center" /></StackPanel></RadioButton>
-                    <RadioButton x:Name="TerminalNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="terminal" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Terminal" VerticalAlignment="Center" /></StackPanel></RadioButton>
-                    <RadioButton x:Name="TransfersNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="transfers" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Transferências" VerticalAlignment="Center" /></StackPanel></RadioButton>
-                    <RadioButton x:Name="AutomationsNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="automations" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Automações" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="ConnectionsNav" Tag="connections" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="{l:Loc Shell.Connections}" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="HomeNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="home" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE80F;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="{l:Loc Shell.Dashboard}" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="FilesNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="files" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="{l:Loc Shell.Files}" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="TerminalNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="terminal" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="{l:Loc Shell.Terminal}" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="TransfersNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="transfers" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="{l:Loc Shell.Transfers}" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="AutomationsNav" Visibility="{Binding HasActiveSession, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding HasActiveSession}" Tag="automations" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="{l:Loc Shell.Automations}" VerticalAlignment="Center" /></StackPanel></RadioButton>
                 </StackPanel>
                 <StackPanel Grid.Row="1" Margin="16,12,16,8">
                     <Grid Margin="1,0,0,10">
-                        <TextBlock Text="VPS salvas" Style="{StaticResource SectionLabelStyle}" VerticalAlignment="Center"/>
-                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding AddConnectionCommand}" HorizontalAlignment="Right" ToolTip="Salvar VPS (Ctrl+N)" AutomationProperties.Name="Salvar VPS"><TextBlock Text="&#xE710;" Style="{StaticResource GlyphStyle}" FontSize="13"/></Button>
+                        <TextBlock Text="{l:Loc Shell.SavedVps}" Style="{StaticResource SectionLabelStyle}" VerticalAlignment="Center"/>
+                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding AddConnectionCommand}" HorizontalAlignment="Right" ToolTip="{l:Loc Shell.SaveVpsShortcut}" AutomationProperties.Name="{l:Loc Shell.SaveVps}"><TextBlock Text="&#xE710;" Style="{StaticResource GlyphStyle}" FontSize="13"/></Button>
                     </Grid>
                     <Grid>
-                        <TextBox x:Name="ConnectionSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Buscar por nome, servidor, grupo ou usuário (Ctrl+K)" AutomationProperties.Name="Buscar conexões"/>
-                        <TextBlock Text="Buscar conexões" IsHitTestVisible="False" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="12,0" VerticalAlignment="Center">
+                        <TextBox x:Name="ConnectionSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" ToolTip="{l:Loc Shell.SearchByServerShortcut}" AutomationProperties.Name="{l:Loc Shell.SearchConnections}"/>
+                        <TextBlock Text="{l:Loc Shell.SearchConnections}" IsHitTestVisible="False" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="12,0" VerticalAlignment="Center">
                             <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding SearchText}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                         </TextBlock>
                     </Grid>
-                    <ToggleButton IsChecked="{Binding FavoritesOnly}" Style="{StaticResource FilterToggleStyle}" HorizontalAlignment="Left" Margin="0,9,0,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,7,0"/><TextBlock Text="Favoritas" FontSize="12"/><TextBlock Text="{Binding FavoriteCount}" FontSize="12" Margin="8,0,0,0"/></StackPanel></ToggleButton>
+                    <ToggleButton IsChecked="{Binding FavoritesOnly}" Style="{StaticResource FilterToggleStyle}" HorizontalAlignment="Left" Margin="0,9,0,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,7,0"/><TextBlock Text="{l:Loc Shell.Favorites}" FontSize="12"/><TextBlock Text="{Binding FavoriteCount}" FontSize="12" Margin="8,0,0,0"/></StackPanel></ToggleButton>
                 </StackPanel>
                 <Grid Grid.Row="2" Margin="12,0,12,8">
-                    <ListBox x:Name="ConnectionsList" ItemsSource="{Binding FilteredConnections}" SelectedItem="{Binding SelectedConnection}" ItemContainerStyle="{StaticResource ConnectionListItemStyle}" SelectionChanged="Connections_SelectionChanged" MouseDoubleClick="Connections_DoubleClick" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Conexões salvas">
+                    <ListBox x:Name="ConnectionsList" ItemsSource="{Binding FilteredConnections}" SelectedItem="{Binding SelectedConnection}" ItemContainerStyle="{StaticResource ConnectionListItemStyle}" SelectionChanged="Connections_SelectionChanged" MouseDoubleClick="Connections_DoubleClick" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{l:Loc Shell.SavedConnections}">
                         <ListBox.GroupStyle><GroupStyle><GroupStyle.HeaderTemplate><DataTemplate><TextBlock Text="{Binding Name}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="9,10,0,4"/></DataTemplate></GroupStyle.HeaderTemplate></GroupStyle></ListBox.GroupStyle>
                         <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="27"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"/><TextBlock Text="{Binding Host}" Style="{StaticResource MutedTextStyle}" FontSize="11" Margin="0,3,0,0"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock Text="Suas conexões aparecerão aqui." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="12,12,12,0" VerticalAlignment="Top" Visibility="{Binding HasConnections, Converter={StaticResource InverseBoolToVisibility}}"/>
+                    <TextBlock Text="{l:Loc Shell.YourConnectionsPlaceholder}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="12,12,12,0" VerticalAlignment="Top" Visibility="{Binding HasConnections, Converter={StaticResource InverseBoolToVisibility}}"/>
                 </Grid>
                 <StackPanel Grid.Row="3" Margin="0,0,0,8">
                     <StackPanel Orientation="Horizontal" Margin="20,0,0,6" Visibility="{Binding HasSelectedConnection, Converter={StaticResource BoolToVisibility}}">
-                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding EditConnectionCommand}" ToolTip="Editar conexão (F2)" AutomationProperties.Name="Editar conexão"><TextBlock Text="&#xE70F;" Style="{StaticResource GlyphStyle}" FontSize="14"/></Button>
-                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DeleteConnectionCommand}" ToolTip="Remover conexão" AutomationProperties.Name="Remover conexão"><TextBlock Text="&#xE74D;" Style="{StaticResource GlyphStyle}" FontSize="14"/></Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding EditConnectionCommand}" ToolTip="{l:Loc Shell.EditShortcut}" AutomationProperties.Name="{l:Loc Shell.EditConnection}"><TextBlock Text="&#xE70F;" Style="{StaticResource GlyphStyle}" FontSize="14"/></Button>
+                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DeleteConnectionCommand}" ToolTip="{l:Loc Shell.RemoveConnection}" AutomationProperties.Name="{l:Loc Shell.RemoveConnection}"><TextBlock Text="&#xE74D;" Style="{StaticResource GlyphStyle}" FontSize="14"/></Button>
                     </StackPanel>
-                    <RadioButton x:Name="SettingsNav" Tag="settings" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="Configurações" VerticalAlignment="Center" /></StackPanel></RadioButton>
+                    <RadioButton x:Name="SettingsNav" Tag="settings" GroupName="MainNavigation" Style="{StaticResource NavigationButtonStyle}" Checked="Navigation_Checked"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Margin="0,0,16,0" /><TextBlock Text="{l:Loc Shell.Settings}" VerticalAlignment="Center" /></StackPanel></RadioButton>
                 </StackPanel>
             </Grid>
             <GridSplitter Grid.Column="1" Width="3" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"/>
@@ -84,31 +85,31 @@
                                 <Image Source="Assets/gallery-bloom-light.png" Stretch="UniformToFill" VerticalAlignment="Top" Height="470"/>
                                 <Border Background="{DynamicResource SurfaceBrush}" Height="240" VerticalAlignment="Bottom"><Border.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="Transparent"/><GradientStop Color="Black" Offset="0.85"/></LinearGradientBrush></Border.OpacityMask></Border>
                                 <StackPanel Margin="40,57,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" MaxWidth="430">
-                                    <TextBlock Text="VPS conectada" Foreground="#171323" FontSize="19" Margin="0,0,0,9"/>
+                                    <TextBlock Text="{l:Loc Shell.ConnectedVps}" Foreground="#171323" FontSize="19" Margin="0,0,0,9"/>
                                     <TextBlock Text="{Binding ActiveConnection.Name}" Foreground="#100A1C" FontSize="36" FontWeight="SemiBold" Margin="0,0,0,14" TextWrapping="Wrap" TextTrimming="None" ToolTip="{Binding ActiveConnection.Name}"/>
                                     <TextBlock Text="{Binding ActiveConnectionEndpoint}" Foreground="#171323" FontSize="15" FontFamily="{StaticResource MonoFont}" TextWrapping="Wrap" LineHeight="23"/>
                                 </StackPanel>
                                 <UniformGrid Columns="5" Height="214" VerticalAlignment="Bottom" Margin="26,0,26,13">
-                                    <Button Tag="connections" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Conexões"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#8751D7"/><GradientStop Color="#4915B6" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="VPS salvas" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Organize seus servidores e ambientes." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
-                                    <Button Tag="files" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Arquivos"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#42B4F4"/><GradientStop Color="#0876C7" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="Arquivos" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Explore suas pastas e arquivos." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
-                                    <Button Tag="terminal" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Terminal"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#526179"/><GradientStop Color="#1B263B" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="Terminal" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Um espaço para suas sessões SSH." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
-                                    <Button Tag="transfers" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Transferências"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#39C8C5"/><GradientStop Color="#09868C" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="Transferências" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Acompanhe envios e downloads." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
-                                    <Button Tag="automations" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="Abrir Automações"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F5BA4E"/><GradientStop Color="#CF711E" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="Automações" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="Suas rotinas em um único lugar." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="connections" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="{l:Loc Shell.OpenConnections}"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#8751D7"/><GradientStop Color="#4915B6" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="{l:Loc Shell.SavedVps}" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="{l:Loc Shell.OrganizeServers}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="files" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="{l:Loc Shell.OpenFiles}"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#42B4F4"/><GradientStop Color="#0876C7" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="{l:Loc Shell.Files}" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="{l:Loc Shell.ExploreDescription}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="terminal" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="{l:Loc Shell.OpenTerminal}"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#526179"/><GradientStop Color="#1B263B" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="{l:Loc Shell.Terminal}" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="{l:Loc Shell.TerminalDescription}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="transfers" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="{l:Loc Shell.OpenTransfers}"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#39C8C5"/><GradientStop Color="#09868C" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="{l:Loc Shell.Transfers}" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="{l:Loc Shell.WatchTransfers}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
+                                    <Button Tag="automations" Click="NavigateCard_Click" Style="{StaticResource HeroCardStyle}" AutomationProperties.Name="{l:Loc Shell.OpenAutomations}"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="6"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F5BA4E"/><GradientStop Color="#CF711E" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="White" HorizontalAlignment="Center"/></Border><TextBlock Grid.Row="1" Text="{l:Loc Shell.Automations}" FontSize="18" Margin="0,19,0,9" TextWrapping="Wrap"/><TextBlock Grid.Row="2" Text="{l:Loc Shell.RoutinesInOnePlace}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,12"/><TextBlock Grid.Row="2" Text="&#xE72A;" Style="{StaticResource GlyphStyle}" FontSize="13" HorizontalAlignment="Right" VerticalAlignment="Bottom"/></Grid></Button>
                                 </UniformGrid>
                             </Grid>
                             <Grid Margin="26,4,26,0">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                <Grid Grid.Column="0" Grid.Row="0"><Button Tag="connections" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#9160DF"/><GradientStop Color="#5C30B6" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Gerenciar VPS salvas" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Cadastre, organize e encontre seus servidores." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
-                                <Grid Grid.Column="1" Grid.Row="0"><Button Tag="files" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#46BCED"/><GradientStop Color="#147DC0" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Explorar arquivos" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Navegue pelas pastas deste computador." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
-                                <Grid Grid.Column="0" Grid.Row="1"><Button Tag="terminal" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#66788F"/><GradientStop Color="#2A394E" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Terminal SSH" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Prepare seu ambiente para sessões remotas." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
-                                <Grid Grid.Column="1" Grid.Row="1"><Button Tag="transfers" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#3EC8BA"/><GradientStop Color="#15898C" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Fila de transferências" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Um espaço para acompanhar envios e downloads." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
-                                <Grid Grid.Column="0" Grid.Row="2"><Button Tag="automations" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F5BC55"/><GradientStop Color="#CD7F31" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Rotinas e tarefas" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Organize o trabalho que você quer automatizar." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
-                                <Grid Grid.Column="1" Grid.Row="2"><Button Tag="settings" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#9D79DB"/><GradientStop Color="#6847AA" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE790;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Seu aplicativo, seu jeito" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Escolha a aparência clara, escura ou do Windows." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="0" Grid.Row="0"><Button Tag="connections" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#9160DF"/><GradientStop Color="#5C30B6" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{l:Loc Shell.ManageSaved}" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.RegisterDescription}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="1" Grid.Row="0"><Button Tag="files" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#46BCED"/><GradientStop Color="#147DC0" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{l:Loc Shell.ExploreFiles}" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.LocalNavigationDescription}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="0" Grid.Row="1"><Button Tag="terminal" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#66788F"/><GradientStop Color="#2A394E" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{l:Loc Shell.SshTerminal}" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.PrepareEnvironment}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="1" Grid.Row="1"><Button Tag="transfers" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#3EC8BA"/><GradientStop Color="#15898C" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{l:Loc Shell.TransferQueue}" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.TransferWorkspaceDescription}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="0" Grid.Row="2"><Button Tag="automations" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#F5BC55"/><GradientStop Color="#CD7F31" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{l:Loc Shell.RoutinesTasks}" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.PlanAutomation}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
+                                <Grid Grid.Column="1" Grid.Row="2"><Button Tag="settings" Click="NavigateCard_Click" Style="{StaticResource GalleryCardStyle}" Margin="6" MinHeight="98"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/></Grid.ColumnDefinitions><Border Width="44" Height="44" CornerRadius="6" HorizontalAlignment="Left" VerticalAlignment="Center"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#9D79DB"/><GradientStop Color="#6847AA" Offset="1"/></LinearGradientBrush></Border.Background><TextBlock Text="&#xE790;" Style="{StaticResource GlyphStyle}" Foreground="White" FontSize="23" HorizontalAlignment="Center"/></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{l:Loc Shell.CustomizeTitle}" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.CustomizeDescription}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,5,8,0"/></StackPanel><TextBlock Grid.Column="2" Text="&#xE76C;" Style="{StaticResource GlyphStyle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right"/></Grid></Button></Grid>
                             </Grid>
                             <Grid Margin="34,22,34,30">
-                                <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding ConnectionCount}" FontWeight="SemiBold"/><TextBlock Text=" conexões salvas" Style="{StaticResource MutedTextStyle}" Margin="3,0,0,0"/></StackPanel>
-                                <Button Content="Salvar VPS" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddConnectionCommand}" HorizontalAlignment="Right"/>
+                                <TextBlock Text="{l:Loc Shell.SavedConnectionsCount, Value={Binding ConnectionCount}}" FontWeight="SemiBold" />
+                                <Button Content="{l:Loc Shell.SaveVps}" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddConnectionCommand}" HorizontalAlignment="Right"/>
                             </Grid>
                         </StackPanel>
                     </ScrollViewer>
@@ -124,35 +125,35 @@
                         <Grid Margin="0,0,0,25">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <StackPanel Margin="0,0,20,0">
-                                <TextBlock Text="Suas conexões" FontSize="30" FontWeight="SemiBold" />
-                                <TextBlock Text="Uma nova conexão ou seus servidores de sempre. Escolha por onde começar." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                <TextBlock Text="{l:Loc Shell.YourConnections}" FontSize="30" FontWeight="SemiBold" />
+                                <TextBlock Text="{l:Loc Shell.ChooseConnection}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,8,0,0" />
                             </StackPanel>
-                            <Button x:Name="AddVpsButton" Grid.Column="1" Command="{Binding AddConnectionCommand}" Style="{StaticResource PrimaryButtonStyle}" VerticalAlignment="Center" ToolTip="Salvar VPS (Ctrl+N)">
-                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" Style="{StaticResource GlyphStyle}" FontSize="14" Margin="0,0,9,0" /><TextBlock Text="Salvar nova VPS" /></StackPanel>
+                            <Button x:Name="AddVpsButton" Grid.Column="1" Command="{Binding AddConnectionCommand}" Style="{StaticResource PrimaryButtonStyle}" VerticalAlignment="Center" ToolTip="{l:Loc Shell.SaveVpsShortcut}">
+                                <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE710;" Style="{StaticResource GlyphStyle}" FontSize="14" Margin="0,0,9,0" /><TextBlock Text="{l:Loc Shell.SaveNewVps}" /></StackPanel>
                             </Button>
                         </Grid>
                         <views:ManualConnectionView x:Name="ManualConnectionPanel" Grid.Row="1" Margin="0,0,0,23" />
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,14">
-                            <TextBlock Text="VPS salvas" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="{l:Loc Shell.SavedVps}" FontSize="20" FontWeight="SemiBold" />
                             <Border Background="{DynamicResource SubtleBrush}" CornerRadius="5" Padding="8,3" Margin="10,0,0,0" VerticalAlignment="Center"><TextBlock Text="{Binding ConnectionCount}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" /></Border>
                         </StackPanel>
                         <Grid Grid.Row="3" Margin="0,0,0,16">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <Grid Width="420" MaxWidth="420" HorizontalAlignment="Left" Margin="0,0,16,0">
-                                <TextBox x:Name="VpsSearchBox" Style="{StaticResource FluentTextBoxStyle}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="34,7,30,7" AutomationProperties.Name="Buscar VPS salvas" />
+                                <TextBox x:Name="VpsSearchBox" Style="{StaticResource FluentTextBoxStyle}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="34,7,30,7" AutomationProperties.Name="{l:Loc Shell.SearchSavedVps}" />
                                 <TextBlock Text="&#xE721;" Style="{StaticResource GlyphStyle}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="12,0,0,0" HorizontalAlignment="Left" IsHitTestVisible="False" />
-                                <TextBlock Text="Buscar por nome, IP, usuário ou grupo" Margin="34,0,30,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsHitTestVisible="False">
+                                <TextBlock Text="{l:Loc Shell.SearchPlaceholder}" Margin="34,0,30,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" IsHitTestVisible="False">
                                     <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding SearchText}" Value=""><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                                 </TextBlock>
                             </Grid>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                <ToggleButton IsChecked="{Binding FavoritesOnly}" Style="{StaticResource FilterToggleStyle}" Margin="0,0,14,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" Style="{StaticResource GlyphStyle}" FontSize="13" Margin="0,0,7,0" /><TextBlock Text="Só favoritas" /></StackPanel></ToggleButton>
-                                <TextBlock Text="{Binding FilteredConnectionCount, StringFormat='Total: {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                <ToggleButton IsChecked="{Binding FavoritesOnly}" Style="{StaticResource FilterToggleStyle}" Margin="0,0,14,0"><StackPanel Orientation="Horizontal"><TextBlock Text="&#xE734;" Style="{StaticResource GlyphStyle}" FontSize="13" Margin="0,0,7,0" /><TextBlock Text="{l:Loc Shell.OnlyFavorites}" /></StackPanel></ToggleButton>
+                                <TextBlock Text="{l:Loc Shell.TotalCount, Value={Binding FilteredConnectionCount}}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Grid>
                         <Grid Grid.Row="4">
                             <ListBox x:Name="SavedProfilesList" ItemsSource="{Binding FilteredConnections}" SelectedItem="{Binding SelectedConnection}" BorderThickness="0" Background="Transparent"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizingWhenGrouping="True" VirtualizingPanel.ScrollUnit="Pixel" MouseDoubleClick="Connections_DoubleClick" AutomationProperties.Name="VPS e servidores salvos">
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizingWhenGrouping="True" VirtualizingPanel.ScrollUnit="Pixel" MouseDoubleClick="Connections_DoubleClick" AutomationProperties.Name="{l:Loc Shell.SavedServers}">
                                 <ListBox.ItemContainerStyle>
                                     <Style TargetType="ListBoxItem" BasedOn="{StaticResource ConnectionListItemStyle}">
                                         <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,0,0,8" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -185,12 +186,12 @@
                                                     <TextBlock Text="{Binding Host}" FontFamily="{StaticResource MonoFont}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,7,0,0" ToolTip="{Binding Host}" />
                                                     <WrapPanel Margin="0,6,0,0">
                                                         <TextBlock Text="{Binding Username}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" MaxWidth="160" Margin="0,0,12,0" />
-                                                        <TextBlock Text="{Binding Port, StringFormat='Porta {0}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                        <TextBlock Text="{l:Loc Shell.PortNumber, Value={Binding Port}}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
                                                     </WrapPanel>
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <Button Content="Conectar" Command="{Binding DataContext.ConnectCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" AutomationProperties.Name="{Binding Name, StringFormat='Conectar a {0}'}" />
-                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="Marcar ou desmarcar favorita" AutomationProperties.Name="Alternar VPS favorita">
+                                                    <Button Content="{l:Loc Shell.Connect}" Command="{Binding DataContext.ConnectCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" AutomationProperties.Name="{l:Loc Shell.ConnectTo, Value={Binding Name}}" />
+                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="{l:Loc Shell.MarkFavorite}" AutomationProperties.Name="{l:Loc Shell.ToggleFavorite}">
                                                         <TextBlock FontSize="15">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock" BasedOn="{StaticResource GlyphStyle}">
@@ -201,13 +202,13 @@
                                                             </TextBlock.Style>
                                                         </TextBlock>
                                                     </Button>
-                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.EditConnectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="Editar VPS" AutomationProperties.Name="{Binding Name, StringFormat='Editar {0}'}">
+                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.EditConnectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="{l:Loc Shell.EditVps}" AutomationProperties.Name="{l:Loc Shell.EditNamedVps, Value={Binding Name}}">
                                                         <TextBlock Text="&#xE70F;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                                     </Button>
-                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.CopySshCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="Copiar comando SSH" AutomationProperties.Name="Copiar comando SSH">
+                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.CopySshCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="{l:Loc Shell.CopySsh}" AutomationProperties.Name="{l:Loc Shell.CopySsh}">
                                                         <TextBlock Text="&#xE8C8;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                                     </Button>
-                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.DeleteConnectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="Remover VPS salva" AutomationProperties.Name="Remover VPS salva">
+                                                    <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.DeleteConnectionCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}" ToolTip="{l:Loc Shell.RemoveSaved}" AutomationProperties.Name="{l:Loc Shell.RemoveSaved}">
                                                         <TextBlock Text="&#xE74D;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                                     </Button>
                                                 </StackPanel>
@@ -222,30 +223,28 @@
                             </ListBox>
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="430" Margin="16" Visibility="{Binding HasConnections, Converter={StaticResource InverseBoolToVisibility}}">
                                 <TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="27" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,0,0,10" />
-                                <TextBlock Text="Nenhuma VPS salva" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" />
-                                <TextBlock Text="Use Salvar nova VPS ou salve os dados do formulário acima." Style="{StaticResource MutedTextStyle}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                <TextBlock Text="{l:Loc Shell.NoSavedVps}" FontSize="18" FontWeight="SemiBold" TextAlignment="Center" />
+                                <TextBlock Text="{l:Loc Shell.SaveFirstHint}" Style="{StaticResource MutedTextStyle}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,0" />
                             </StackPanel>
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380" Margin="25">
                                 <StackPanel.Style><Style TargetType="StackPanel"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions><Condition Binding="{Binding HasConnections}" Value="True" /><Condition Binding="{Binding HasFilteredConnections}" Value="False" /></MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers></Style></StackPanel.Style>
-                                <TextBlock Text="Nenhuma VPS encontrada" FontSize="20" FontWeight="SemiBold" TextAlignment="Center" /><TextBlock Text="Altere a busca ou desative o filtro de favoritas." Style="{StaticResource MutedTextStyle}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,10,0,0" />
+                                <TextBlock Text="{l:Loc Shell.NoMatches}" FontSize="20" FontWeight="SemiBold" TextAlignment="Center" /><TextBlock Text="{l:Loc Shell.NoMatchesHint}" Style="{StaticResource MutedTextStyle}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,10,0,0" />
                             </StackPanel>
                         </Grid>
-                        <TextBlock Grid.Row="5" Text="Os perfis ficam neste computador e continuam disponíveis ao reabrir o aplicativo." Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,15,0,0" />
+                        <TextBlock Grid.Row="5" Text="{l:Loc Shell.ProfilesPersistHint}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" Margin="0,15,0,0" />
                     </Grid>
-                                    <Grid x:Name="MainWorkspaceGrid" Visibility="Collapsed" Margin="24,0,24,20">
+                                    <Grid x:Name="MainWorkspaceGrid" Visibility="Collapsed" Margin="24,0,24,16">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="68" />
-                        <RowDefinition Height="3*" MinHeight="235" />
-                        <RowDefinition Height="6" />
-                        <RowDefinition Height="1.6*" MinHeight="135" />
-                        <RowDefinition Height="6" />
-                        <RowDefinition Height="1.65*" MinHeight="220" />
+                        <RowDefinition Height="56" />
+                        <RowDefinition x:Name="FileBrowserRow" Height="1.05*" MinHeight="260" />
+                        <RowDefinition x:Name="WorkspaceSplitterRow" Height="8" />
+                        <RowDefinition x:Name="WorkspaceTransferRow" Height="*" MinHeight="330" />
                     </Grid.RowDefinitions>
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding SelectedConnectionTitle}" FontSize="22" FontWeight="SemiBold" MaxWidth="450" />
+                                <TextBlock Text="{Binding SelectedConnectionTitle}" FontSize="20" FontWeight="SemiBold" MaxWidth="450" TextTrimming="CharacterEllipsis" ToolTip="{Binding SelectedConnectionTitle}" />
                                 <Border Background="{DynamicResource SubtleBrush}" CornerRadius="3" Padding="6,3" Margin="10,0,0,0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding SelectedProtocolLabel}" FontSize="9" Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="SemiBold" />
                                 </Border>
@@ -253,46 +252,40 @@
                             <TextBlock Text="{Binding SelectedConnectionEndpoint}" FontFamily="{StaticResource MonoFont}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Command="{Binding CopyEndpointCommand}" Style="{StaticResource IconButtonStyle}" Margin="0,0,10,0" ToolTip="Copiar endereço" AutomationProperties.Name="Copiar endereço da conexão">
+                            <Button Command="{Binding CopyEndpointCommand}" Style="{StaticResource IconButtonStyle}" Margin="0,0,10,0" ToolTip="{l:Loc Shell.CopyAddress}" AutomationProperties.Name="{l:Loc Shell.CopyConnectionAddress}">
                                 <TextBlock Text="&#xE8C8;" Style="{StaticResource GlyphStyle}" FontSize="15" />
-                            </Button>
-                            <Button Command="{Binding ConnectCommand}" Style="{StaticResource PrimaryButtonStyle}" MinWidth="112" ToolTip="Preparar acesso à conexão selecionada">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE839;" Style="{StaticResource GlyphStyle}" FontSize="14" Margin="0,0,8,0" />
-                                    <TextBlock Text="Conectar" />
-                                </StackPanel>
                             </Button>
                         </StackPanel>
                     </Grid>
 
-                    <Grid Grid.Row="1">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="370" /><ColumnDefinition Width="6" /><ColumnDefinition Width="*" MinWidth="330" /></Grid.ColumnDefinitions>
-                        <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                    <Grid x:Name="FileBrowserGrid" Grid.Row="1">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="360" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" MinWidth="360" /></Grid.ColumnDefinitions>
+                        <Border x:Name="LocalFilesPanel" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
                             <Grid>
-                                <Grid.RowDefinitions><RowDefinition Height="43" /><RowDefinition Height="47" /><RowDefinition Height="*" /><RowDefinition Height="27" /></Grid.RowDefinitions>
+                                <Grid.RowDefinitions><RowDefinition Height="40" /><RowDefinition Height="42" /><RowDefinition Height="*" /><RowDefinition Height="25" /></Grid.RowDefinitions>
                                 <Grid Margin="13,0,9,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="&#xE7F8;" Style="{StaticResource GlyphStyle}" FontSize="15" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,9,0" />
-                                        <TextBlock Text="Arquivos locais" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="{l:Loc Shell.LocalFiles}" FontWeight="SemiBold" FontSize="12" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Button x:Name="UploadFileButton" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" MinHeight="30" FontSize="12" Margin="0,0,4,0" Command="{Binding UploadCommand}" ToolTip="Enviar arquivo para a VPS" AutomationProperties.Name="Enviar arquivo para a VPS">
-                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE898;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,6,0" /><TextBlock Text="Enviar" /></StackPanel>
+                                        <Button x:Name="UploadFileButton" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" MinHeight="30" FontSize="12" Margin="0,0,4,0" Command="{Binding UploadCommand}" ToolTip="{l:Loc Shell.UploadFiles}" AutomationProperties.Name="{l:Loc Shell.UploadFiles}">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE898;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,6,0" /><TextBlock Text="{l:Loc Shell.Upload}" /></StackPanel>
                                         </Button>
-                                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding BrowseLocalCommand}" ToolTip="Escolher pasta local" AutomationProperties.Name="Escolher pasta local">
+                                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding BrowseLocalCommand}" ToolTip="{l:Loc Shell.ChooseLocalFolder}" AutomationProperties.Name="{l:Loc Shell.ChooseLocalFolder}">
                                             <TextBlock Text="&#xE8B7;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                         </Button>
-                                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding RefreshLocalCommand}" ToolTip="Atualizar (F5)" AutomationProperties.Name="Atualizar arquivos locais">
+                                        <Button Style="{StaticResource IconButtonStyle}" Command="{Binding RefreshLocalCommand}" ToolTip="{l:Loc Shell.RefreshShortcut}" AutomationProperties.Name="{l:Loc Shell.RefreshLocal}">
                                             <TextBlock Text="&#xE72C;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                         </Button>
                                     </StackPanel>
                                 </Grid>
                                 <Grid Grid.Row="1" Margin="9,1,9,9">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                    <Button Command="{Binding GoUpCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="Pasta acima" AutomationProperties.Name="Abrir pasta acima">
+                                    <Button Command="{Binding GoUpCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="{l:Loc Shell.ParentFolder}" AutomationProperties.Name="{l:Loc Shell.OpenParent}">
                                         <TextBlock Text="&#xE74A;" Style="{StaticResource GlyphStyle}" FontSize="13" />
                                     </Button>
-                                    <TextBox Grid.Column="1" Text="{Binding LocalPath, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="9,6" ToolTip="{Binding LocalPath}" AutomationProperties.Name="Caminho da pasta local">
+                                    <TextBox Grid.Column="1" Text="{Binding LocalPath, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="9,6" ToolTip="{Binding LocalPath}" AutomationProperties.Name="{l:Loc Shell.LocalPath}">
                                         <TextBox.InputBindings><KeyBinding Key="Enter" Command="{Binding NavigateLocalCommand}" /></TextBox.InputBindings>
                                     </TextBox>
                                 </Grid>
@@ -300,72 +293,84 @@
                                     <DataGrid x:Name="LocalFilesGrid" Style="{StaticResource FileGridStyle}" AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}" ItemsSource="{Binding LocalEntries}" SelectedItem="{Binding SelectedLocalEntry}"
                                               SelectionMode="Extended" SelectionChanged="LocalFiles_SelectionChanged"
                                               PreviewMouseLeftButtonDown="LocalFiles_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="LocalFiles_PreviewMouseLeftButtonUp" PreviewMouseMove="LocalFiles_PreviewMouseMove"
-                                              MouseDoubleClick="LocalFiles_DoubleClick" PreviewKeyDown="LocalFiles_KeyDown" AutomationProperties.Name="Arquivos da pasta local"
-                                              ToolTip="Use Ctrl ou Shift para selecionar vários arquivos. Arraste-os para o painel remoto ou para a fila de transferências.">
+                                              MouseDoubleClick="LocalFiles_DoubleClick" PreviewKeyDown="LocalFiles_KeyDown" AutomationProperties.Name="{l:Loc Shell.LocalFolderFiles}"
+                                              RowHeight="44" ToolTip="{l:Loc Shell.MultiSelectHint}">
                                         <DataGrid.Columns>
-                                            <DataGridTemplateColumn Header="Nome" Width="*" MinWidth="145" SortMemberPath="Name">
+                                            <DataGridTemplateColumn Header="{l:Loc Shell.Name}" Width="*" MinWidth="150" SortMemberPath="Name">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate>
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <TextBlock Text="{Binding IconGlyph}" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,9,0" />
-                                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" ToolTip="{Binding Name}" />
-                                                        </StackPanel>
+                                                        <Grid Margin="10,0,8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding IconGlyph}" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                                <TextBlock Text="{Binding TypeLabel}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding TypeLabel}" />
+                                                            </StackPanel>
+                                                        </Grid>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTextColumn Header="Tamanho" Binding="{Binding SizeLabel}" SortMemberPath="Size" Width="84" />
-                                            <DataGridTextColumn Header="Modificado" Binding="{Binding ModifiedLabel}" SortMemberPath="LastModified" Width="132" />
+                                            <DataGridTextColumn Header="{l:Loc Shell.Size}" Binding="{Binding SizeLabel}" SortMemberPath="Size" Width="84" />
+                                            <DataGridTemplateColumn Header="{l:Loc Shell.Modified}" SortMemberPath="LastModified" Width="126">
+                                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding ModifiedLabel}" FontSize="11" TextWrapping="Wrap" Margin="8,0" VerticalAlignment="Center" ToolTip="{Binding ModifiedLabel}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <TextBlock Text="Esta pasta está vazia." Style="{StaticResource MutedTextStyle}" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="{Binding HasLocalEntries, Converter={StaticResource InverseBoolToVisibility}}" />
+                                    <TextBlock Text="{l:Loc Shell.EmptyFolder}" Style="{StaticResource MutedTextStyle}" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="{Binding HasLocalEntries, Converter={StaticResource InverseBoolToVisibility}}" />
                                 </Grid>
                                 <Border Grid.Row="3" BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,1,0,0" Padding="12,5">
                                     <TextBlock Text="{Binding LocalSummary}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
                                 </Border>
                             </Grid>
                         </Border>
-                        <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
+                        <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" Focusable="True" KeyboardIncrement="20" Cursor="SizeWE"
+                                      ToolTip="{l:Loc Shell.ResizeFilePanels}" AutomationProperties.Name="{l:Loc Shell.ResizeFilePanels}" />
                         <Border x:Name="RemoteFilesPanel" Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8"
-                                AllowDrop="True" PreviewDragOver="UploadFiles_DragOver" PreviewDrop="UploadFiles_Drop" DragLeave="UploadFiles_DragLeave">
+                                ClipToBounds="True" AllowDrop="True" PreviewDragOver="UploadFiles_DragOver" PreviewDrop="UploadFiles_Drop" DragLeave="UploadFiles_DragLeave">
                             <Grid>
-                                <Grid.RowDefinitions><RowDefinition Height="43" /><RowDefinition Height="47" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="27" /></Grid.RowDefinitions>
+                                <Grid.RowDefinitions><RowDefinition Height="40" /><RowDefinition Height="42" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="25" /></Grid.RowDefinitions>
                                 <Grid Margin="13,0,9,0">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="&#xE968;" Style="{StaticResource GlyphStyle}" FontSize="15" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,9,0" />
-                                        <TextBlock Text="Arquivos remotos" FontWeight="SemiBold" FontSize="12" />
+                                        <TextBlock Text="{l:Loc Shell.RemoteFiles}" FontWeight="SemiBold" FontSize="12" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Button x:Name="DownloadFileButton" Command="{Binding DownloadCommand}" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" MinHeight="30" FontSize="12" Margin="0,0,4,0" ToolTip="Baixar arquivo selecionado" AutomationProperties.Name="Baixar arquivo remoto">
-                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,6,0" /><TextBlock Text="Baixar" /></StackPanel>
+                                        <Button x:Name="DownloadFileButton" Command="{Binding DownloadCommand}" Style="{StaticResource SecondaryButtonStyle}" Padding="8,4" MinHeight="30" FontSize="12" Margin="0,0,4,0" ToolTip="{l:Loc Shell.DownloadSelected}" AutomationProperties.Name="{l:Loc Shell.DownloadFile}">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE896;" Style="{StaticResource GlyphStyle}" FontSize="12" Margin="0,0,6,0" /><TextBlock Text="{l:Loc Shell.Download}" /></StackPanel>
                                         </Button>
-                                        <Button Command="{Binding RefreshRemoteCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="Atualizar pasta remota" AutomationProperties.Name="Atualizar arquivos remotos">
+                                        <Button Command="{Binding RefreshRemoteCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="{l:Loc Shell.RefreshRemoteFolder}" AutomationProperties.Name="{l:Loc Shell.RefreshRemote}">
                                             <TextBlock Text="&#xE72C;" Style="{StaticResource GlyphStyle}" FontSize="14" />
                                         </Button>
                                     </StackPanel>
                                 </Grid>
                                 <Grid Grid.Row="1" Margin="9,1,9,9">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                    <Button Command="{Binding GoUpRemoteCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="Pasta remota acima" AutomationProperties.Name="Abrir pasta remota acima">
+                                    <Button Command="{Binding GoUpRemoteCommand}" Style="{StaticResource IconButtonStyle}" ToolTip="{l:Loc Shell.RemoteParent}" AutomationProperties.Name="{l:Loc Shell.OpenRemoteParent}">
                                         <TextBlock Text="&#xE74A;" Style="{StaticResource GlyphStyle}" FontSize="13" />
                                     </Button>
-                                    <TextBox x:Name="RemotePathBox" Grid.Column="1" Text="{Binding RemotePath, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="9,6" IsEnabled="{Binding HasRemoteFileService}" ToolTip="{Binding RemotePath}" AutomationProperties.Name="Caminho da pasta remota">
+                                    <TextBox x:Name="RemotePathBox" Grid.Column="1" Text="{Binding RemotePath, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource MonoFont}" FontSize="11" Padding="9,6" IsEnabled="{Binding HasRemoteFileService}" ToolTip="{Binding RemotePath}" AutomationProperties.Name="{l:Loc Shell.RemotePath}">
                                         <TextBox.InputBindings><KeyBinding Key="Enter" Command="{Binding NavigateRemoteCommand}" /></TextBox.InputBindings>
                                     </TextBox>
-                                    <ProgressBar Grid.ColumnSpan="2" Height="2" VerticalAlignment="Bottom" IsIndeterminate="True" Visibility="{Binding IsRemoteLoading, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="Carregando pasta remota" />
+                                    <ProgressBar Grid.ColumnSpan="2" Height="2" VerticalAlignment="Bottom" IsIndeterminate="True" Visibility="{Binding IsRemoteLoading, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="{l:Loc Shell.LoadingRemote}" />
                                 </Grid>
                                 <StackPanel Grid.Row="2">
                                     <TextBlock x:Name="RemoteErrorText" Text="{Binding RemoteError}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="11" Margin="12,0,12,8" Visibility="{Binding HasRemoteError, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
-                                    <TextBlock Text="{Binding BatchUploadNotice}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="12,0,12,8" Visibility="{Binding HasBatchUploadNotice, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
                                 </StackPanel>
                                 <Grid Grid.Row="3">
-                                    <DataGrid x:Name="RemoteFilesGrid" Style="{StaticResource FileGridStyle}" AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}" ItemsSource="{Binding RemoteEntries}" SelectedItem="{Binding SelectedRemoteEntry}" MouseDoubleClick="RemoteFiles_DoubleClick" PreviewKeyDown="RemoteFiles_KeyDown" AutomationProperties.Name="Arquivos da pasta remota">
+                                    <DataGrid x:Name="RemoteFilesGrid" Style="{StaticResource FileGridStyle}" AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}" ItemsSource="{Binding RemoteEntries}" SelectedItem="{Binding SelectedRemoteEntry}"
+                                              SelectionMode="Extended" SelectionChanged="RemoteFiles_SelectionChanged" MouseDoubleClick="RemoteFiles_DoubleClick" PreviewKeyDown="RemoteFiles_KeyDown" RowHeight="44" AutomationProperties.Name="{l:Loc Shell.RemoteFolderFiles}">
                                         <DataGrid.Columns>
-                                            <DataGridTemplateColumn Header="Nome" Width="*" MinWidth="125" SortMemberPath="Name">
-                                                <DataGridTemplateColumn.CellTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock Text="{Binding IconGlyph}" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" /><TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" ToolTip="{Binding Name}" /></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                            <DataGridTemplateColumn Header="{l:Loc Shell.Name}" Width="*" MinWidth="125" SortMemberPath="Name">
+                                                <DataGridTemplateColumn.CellTemplate><DataTemplate><Grid Margin="10,0,8,0"><Grid.ColumnDefinitions><ColumnDefinition Width="24" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock Text="{Binding IconGlyph}" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                        <TextBlock Text="{Binding TypeLabel}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding TypeLabel}" />
+                                                    </StackPanel>
+                                                </Grid></DataTemplate></DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
-                                            <DataGridTextColumn Header="Tipo" Binding="{Binding TypeLabel}" Width="85" />
-                                            <DataGridTextColumn Header="Tamanho" Binding="{Binding SizeLabel}" Width="90" SortMemberPath="Size" />
-                                            <DataGridTextColumn Header="Modificado" Binding="{Binding ModifiedLabel}" Width="125" SortMemberPath="LastModified" />
+                                            <DataGridTextColumn Header="{l:Loc Shell.Size}" Binding="{Binding SizeLabel}" Width="82" SortMemberPath="Size" />
+                                            <DataGridTemplateColumn Header="{l:Loc Shell.Modified}" SortMemberPath="LastModified" Width="126">
+                                                <DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding ModifiedLabel}" FontSize="11" TextWrapping="Wrap" Margin="8,0" VerticalAlignment="Center" ToolTip="{Binding ModifiedLabel}" /></DataTemplate></DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
                                         </DataGrid.Columns>
                                     </DataGrid>
                                     <TextBlock Text="{Binding RemoteStateMessage}" Style="{StaticResource MutedTextStyle}" FontSize="12" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="280" Margin="16,38,16,12" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False" Visibility="{Binding HasRemoteEntries, Converter={StaticResource InverseBoolToVisibility}}" />
@@ -376,27 +381,39 @@
                                 <Border x:Name="RemoteDropOverlay" Grid.RowSpan="5" Visibility="Collapsed" IsHitTestVisible="False" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="7" Padding="24">
                                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <TextBlock Text="&#xE898;" Style="{StaticResource GlyphStyle}" FontSize="32" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,0,0,12" />
-                                        <TextBlock Text="Solte para enviar à VPS" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" />
-                                        <TextBlock Text="Os arquivos serão adicionados à fila sequencial." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center" />
+                                        <TextBlock Text="{l:Loc Shell.DropUpload}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" />
+                                        <TextBlock Text="{l:Loc Shell.DropUploadHint}" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                             </Grid>
                         </Border>
                     </Grid>
-                    <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
+                    <GridSplitter x:Name="WorkspaceFilesSplitter" Grid.Row="2" Height="8" HorizontalAlignment="Stretch" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                                  Focusable="True" KeyboardIncrement="20" DragIncrement="4" Cursor="SizeNS" ToolTip="{l:Loc Shell.ResizeFilesAndTransfers}" AutomationProperties.Name="{l:Loc Shell.ResizeFilesAndTransfers}" />
 
-                    <Border Grid.Row="3" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Background="{DynamicResource SurfaceBrush}" ClipToBounds="True">
+                    <Border x:Name="TransferQueuePanel" Grid.Row="3" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Background="{DynamicResource SurfaceBrush}" ClipToBounds="True">
+                        <Grid>
                         <TabControl x:Name="WorkspaceTabs" Style="{StaticResource FluentTabControlStyle}" ItemContainerStyle="{StaticResource FluentTabItemStyle}">
+                            <TabItem x:Name="TransfersWorkspaceTab" IsSelected="True">
+                                <TabItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="14" Margin="0,0,8,0" />
+                                        <TextBlock Text="{l:Loc Shell.Transfers}" FontSize="12" FontWeight="SemiBold" />
+                                        <Border Background="{DynamicResource SubtleBrush}" CornerRadius="3" Padding="6,1" Margin="8,0,0,0"><TextBlock Text="{Binding TransferCount}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" /></Border>
+                                    </StackPanel>
+                                </TabItem.Header>
+                                <views:TransferQueueView />
+                            </TabItem>
                             <TabItem>
                                 <TabItem.Header>
-                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="Terminal" FontSize="12" /></StackPanel>
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE756;" Style="{StaticResource GlyphStyle}" FontSize="13" Margin="0,0,8,0" /><TextBlock Text="{l:Loc Shell.Terminal}" FontSize="12" /></StackPanel>
                                 </TabItem.Header>
                                 <Border Background="{DynamicResource TerminalBrush}" Padding="19,15">
                                     <Grid>
                                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                                         <DockPanel Margin="0,0,0,13">
-                                            <TextBlock Text="SESSÃO SSH" Foreground="#8193AC" FontSize="9" FontWeight="SemiBold" />
-                                            <TextBlock Text="Emulação de terminal indisponível" Foreground="#7D8EA4" FontSize="10" HorizontalAlignment="Right" />
+                                            <TextBlock Text="{l:Loc Shell.SshSession}" Foreground="#8193AC" FontSize="9" FontWeight="SemiBold" />
+                                            <TextBlock Text="{l:Loc Shell.TerminalUnavailable}" Foreground="#7D8EA4" FontSize="10" HorizontalAlignment="Right" />
                                         </DockPanel>
                                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                             <TextBlock Text="{Binding TerminalMessage}" FontFamily="{StaticResource MonoFont}" FontSize="11" Foreground="#B5C5D9" TextWrapping="Wrap" LineHeight="18" />
@@ -404,7 +421,7 @@
                                     </Grid>
                                 </Border>
                             </TabItem>
-                            <TabItem Header="Atividade">
+                            <TabItem Header="{l:Loc Shell.Activity}">
                                 <Grid Background="{DynamicResource SurfaceBrush}" Margin="18">
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="{Binding StatusMessage}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
@@ -412,74 +429,73 @@
                                     </StackPanel>
                                 </Grid>
                             </TabItem>
-                            <TabItem Header="Automações">
-                                <Grid Background="{DynamicResource SurfaceBrush}" Margin="18">
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="Rotinas para o seu dia a dia" FontWeight="SemiBold" FontSize="14" />
-                                        <TextBlock Text="O editor e a execução de tarefas estarão disponíveis em uma próxima versão." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0" TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </Grid>
-                            </TabItem>
                         </TabControl>
-                    </Border>
-                    <GridSplitter Grid.Row="4" Height="6" HorizontalAlignment="Stretch" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
-                    <Border x:Name="TransferQueuePanel" Grid.Row="5" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Background="{DynamicResource SurfaceBrush}">
-                        <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="38" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                            <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Padding="14,0">
-                                <Grid>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="&#xE895;" Style="{StaticResource GlyphStyle}" FontSize="14" Foreground="#6E84A2" Margin="0,0,9,0" />
-                                        <TextBlock Text="Transferências" FontSize="12" FontWeight="SemiBold" />
-                                        <Border Background="{DynamicResource SubtleBrush}" CornerRadius="3" Padding="6,2" Margin="9,0,0,0"><TextBlock Text="{Binding TransferCount}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" /></Border>
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding TransferSummary}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                </Grid>
-                            </Border>
-                            <views:TransferQueueView Grid.Row="1" />
+                        <ToggleButton x:Name="ExpandTransfersToggle" Width="30" Height="28" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,8,0"
+                                      Checked="TransferPanelSize_Changed" Unchecked="TransferPanelSize_Changed" ToolTip="{l:Loc Shell.ExpandTransfers}" AutomationProperties.Name="{l:Loc Shell.ExpandTransfers}">
+                            <ToggleButton.Style><Style TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="6" /></Style></ToggleButton.Style>
+                            <TextBlock FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Text" Value="&#xE922;" /><Style.Triggers><DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType={x:Type ToggleButton}}}" Value="True"><Setter Property="Text" Value="&#xE923;" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
+                        </ToggleButton>
                         </Grid>
                     </Border>
                 </Grid>
                     <Grid x:Name="TerminalPage" Visibility="Collapsed" Margin="34,30">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                        <StackPanel Margin="0,0,0,24"><TextBlock Text="Terminal" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Um espaço para suas sessões SSH." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
+                        <StackPanel Margin="0,0,0,24"><TextBlock Text="{l:Loc Shell.Terminal}" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.TerminalDescription}" Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
                         <Border Grid.Row="1" Background="{DynamicResource TerminalBrush}" CornerRadius="8" Padding="25">
                             <StackPanel><TextBlock Text="{Binding ActiveConnectionEndpoint}" Foreground="{DynamicResource TerminalTextBrush}" FontSize="13" Margin="0,0,0,22"/><TextBlock Text="{Binding TerminalMessage}" Foreground="{DynamicResource TerminalTextBrush}" FontFamily="{StaticResource MonoFont}" FontSize="13" TextWrapping="Wrap" LineHeight="23"/></StackPanel>
                         </Border>
                     </Grid>
                     <Grid x:Name="TransfersPage" Visibility="Collapsed" Margin="34,30">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                        <StackPanel><TextBlock Text="Transferências" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Seus envios e downloads, em um só lugar." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
+                        <StackPanel><TextBlock Text="{l:Loc Shell.Transfers}" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.TransferDescription}" Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
                         <Border Grid.Row="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,25,0,0">
                             <views:TransferQueueView />
                         </Border>
                     </Grid>
                     <Grid x:Name="AutomationsPage" Visibility="Collapsed" Margin="34,30">
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                        <StackPanel><TextBlock Text="Automações" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="Mais tempo para o que importa." Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
+                        <StackPanel><TextBlock Text="{l:Loc Shell.Automations}" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.AutomationDescription}" Style="{StaticResource MutedTextStyle}" Margin="0,8,0,0"/></StackPanel>
                         <Border Grid.Row="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,25,0,0" Padding="32">
                             <StackPanel VerticalAlignment="Center" MaxWidth="460">
                                 <TextBlock Text="&#xE713;" Style="{StaticResource GlyphStyle}" FontSize="44" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,25"/>
-                                <TextBlock Text="Suas rotinas, simplificadas" FontSize="24" FontWeight="SemiBold"/>
-                                <TextBlock Text="Enviar arquivos, executar comandos e buscar resultados. O editor e a execução de tarefas estarão disponíveis em uma próxima versão." TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" FontSize="14" LineHeight="23" Margin="0,14,0,0"/>
+                                <TextBlock Text="{l:Loc Shell.SimplifiedWorkflows}" FontSize="24" FontWeight="SemiBold"/>
+                                <TextBlock Text="{l:Loc Shell.AutomationFutureDetails}" TextWrapping="Wrap" Style="{StaticResource MutedTextStyle}" FontSize="14" LineHeight="23" Margin="0,14,0,0"/>
                             </StackPanel>
                         </Border>
                     </Grid>
                     <ScrollViewer x:Name="SettingsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="34,30">
-                            <TextBlock Text="Configurações" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,30"/>
-                            <TextBlock Text="Personalização" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,14"/>
+                            <TextBlock Text="{l:Loc Shell.Settings}" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,30"/>
+                            <TextBlock Text="{l:Loc Shell.Personalization}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,14"/>
                             <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="22">
                                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Margin="0,0,22,0"><TextBlock Text="Tema do aplicativo" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="Escolha como o oh-my-ssh aparece para você." Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
-                                    <ComboBox x:Name="ThemePicker" Grid.Column="1" Width="210" VerticalAlignment="Center" SelectionChanged="ThemePicker_SelectionChanged" AutomationProperties.Name="Tema do aplicativo"><ComboBoxItem Content="Usar tema do Windows" Tag="System"/><ComboBoxItem Content="Claro" Tag="Light"/><ComboBoxItem Content="Escuro" Tag="Dark"/></ComboBox>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,22,0"><TextBlock Text="{l:Loc Shell.AppTheme}" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.ThemeDescription}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
+                                    <ComboBox x:Name="ThemePicker" Grid.Column="1" Width="210" VerticalAlignment="Center" SelectionChanged="ThemePicker_SelectionChanged" AutomationProperties.Name="{l:Loc Shell.AppTheme}"><ComboBoxItem Content="{l:Loc Shell.SystemTheme}" Tag="System"/><ComboBoxItem Content="{l:Loc Shell.LightTheme}" Tag="Light"/><ComboBoxItem Content="{l:Loc Shell.DarkTheme}" Tag="Dark"/></ComboBox>
                                 </Grid>
                             </Border>
-                            <TextBlock Text="Aplicativo" FontSize="18" FontWeight="SemiBold" Margin="0,30,0,14"/>
-                            <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="22">
-                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Continuar na bandeja" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="Mantenha o aplicativo aberto na área de notificação." Style="{StaticResource MutedTextStyle}" Margin="0,6,12,0" TextWrapping="Wrap"/></StackPanel><Button Grid.Column="1" Content="Enviar para bandeja" Click="HideToTray_Click" VerticalAlignment="Center"/></Grid>
+                            <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="22" Margin="0,12,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,22,0">
+                                        <TextBlock Text="{l:Loc Shell.Language}" FontSize="15" FontWeight="SemiBold" />
+                                        <TextBlock Text="{l:Loc Shell.LanguageHint}" Style="{StaticResource MutedTextStyle}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                        <TextBlock x:Name="LanguageSaveErrorText" Text="{l:Loc Shell.LanguageSaveError}" Visibility="Collapsed" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" />
+                                    </StackPanel>
+                                    <ComboBox x:Name="LanguagePicker" Grid.Column="1" Width="210" VerticalAlignment="Center" SelectedValuePath="Tag"
+                                              SelectionChanged="LanguagePicker_SelectionChanged" AutomationProperties.Name="{l:Loc Shell.Language}">
+                                        <ComboBoxItem Content="{l:Loc Shell.LanguageEnglish}" Tag="en-US" />
+                                        <ComboBoxItem Content="{l:Loc Shell.LanguagePortuguese}" Tag="pt-BR" />
+                                        <ComboBoxItem Content="{l:Loc Shell.LanguageSpanish}" Tag="es-ES" />
+                                    </ComboBox>
+                                </Grid>
                             </Border>
-                            <Button Content="Sobre o oh-my-ssh" Click="About_Click" HorizontalAlignment="Left" Margin="0,24,0,0"/>
+                            <TextBlock Text="{l:Loc Shell.Application}" FontSize="18" FontWeight="SemiBold" Margin="0,30,0,14"/>
+                            <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="22">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{l:Loc Shell.StayInTray}" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="{l:Loc Shell.TrayDescription}" Style="{StaticResource MutedTextStyle}" Margin="0,6,12,0" TextWrapping="Wrap"/></StackPanel><Button Grid.Column="1" Content="{l:Loc Shell.SendToTray}" Click="HideToTray_Click" VerticalAlignment="Center"/></Grid>
+                            </Border>
+                            <Button Content="{l:Loc Shell.About}" Click="About_Click" HorizontalAlignment="Left" Margin="0,24,0,0"/>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>

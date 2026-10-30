@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
 using Forms = System.Windows.Forms;
+using OhMySsh.Core.Localization;
 
 namespace OhMySsh.Desktop.Services;
 
@@ -10,24 +11,27 @@ internal sealed class SystemTrayService : IDisposable
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly Forms.ContextMenuStrip _menu;
     private readonly Icon _icon;
+    private readonly Forms.ToolStripMenuItem _openItem;
+    private readonly Forms.ToolStripMenuItem _exitItem;
     private bool _disposed;
 
     public SystemTrayService(MainWindow window)
     {
         _icon = CreateIcon();
         _menu = new Forms.ContextMenuStrip();
-        _menu.Items.Add("Abrir oh-my-ssh", null, (_, _) => window.Dispatcher.BeginInvoke(window.RestoreFromTray));
+        _openItem = (Forms.ToolStripMenuItem)_menu.Items.Add(UiText.Get("Shell.TrayOpen"), null, (_, _) => window.Dispatcher.BeginInvoke(window.RestoreFromTray));
         _menu.Items.Add(new Forms.ToolStripSeparator());
-        _menu.Items.Add("Sair", null, (_, _) => window.Dispatcher.BeginInvoke(window.Close));
+        _exitItem = (Forms.ToolStripMenuItem)_menu.Items.Add(UiText.Get("Shell.TrayExit"), null, (_, _) => window.Dispatcher.BeginInvoke(window.Close));
 
         _notifyIcon = new Forms.NotifyIcon
         {
-            Text = "oh-my-ssh · Gerenciador de conexões",
+            Text = UiText.Get("Shell.TrayTooltip"),
             Icon = _icon,
             ContextMenuStrip = _menu,
             Visible = true
         };
         _notifyIcon.DoubleClick += (_, _) => window.Dispatcher.BeginInvoke(window.RestoreFromTray);
+        UiText.Current.LanguageChanged += OnLanguageChanged;
     }
 
     public void Dispose()
@@ -38,10 +42,18 @@ internal sealed class SystemTrayService : IDisposable
         }
 
         _disposed = true;
+        UiText.Current.LanguageChanged -= OnLanguageChanged;
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
         _menu.Dispose();
         _icon.Dispose();
+    }
+
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        _openItem.Text = UiText.Get("Shell.TrayOpen");
+        _exitItem.Text = UiText.Get("Shell.TrayExit");
+        _notifyIcon.Text = UiText.Get("Shell.TrayTooltip");
     }
 
     private static Icon CreateIcon()

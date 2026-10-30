@@ -1,3 +1,4 @@
+using OhMySsh.Core.Localization;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Microsoft.Win32.SafeHandles;
@@ -12,6 +13,14 @@ public sealed class WindowsUserVerificationService : IWindowsUserVerificationSer
 {
     private const uint GenericPrompt = 0x1;
     private const uint GenericCredentialPack = 0x4;
+    private const uint DoNotPersist = 0x2;
+    private const uint AlwaysShowUi = 0x80;
+    private const uint GenericCredentials = 0x40000;
+    private const uint KeepUsername = 0x100000;
+    private const uint LocalPasswordPromptFlags = DoNotPersist | AlwaysShowUi | GenericCredentials | KeepUsername;
+    // WinCred limits include an additional character for the terminating NUL.
+    private const uint LocalUsernameCharacters = 514;
+    private const uint LocalPasswordCharacters = 257;
     private const int InsufficientBuffer = 122;
     private const uint UserCanceled = 1223;
     private const uint TokenQuery = 0x8;
@@ -109,6 +118,9 @@ public sealed class WindowsUserVerificationService : IWindowsUserVerificationSer
     private static WindowsUserVerificationResult VerifyPassword(nint ownerWindow, string purpose,
         SecurityIdentifier expectedUser, string accountName, CancellationToken cancellationToken)
     {
+        if (TryGetLocalAccount(accountName, Environment.MachineName, out var localUsername))
+            return VerifyLocalPassword(ownerWindow, purpose, expectedUser, localUsername, cancellationToken);
+
         nint input = 0, output = 0, username = 0, domain = 0, password = 0;
         uint inputBytes = 0, inputCapacity = 0, outputBytes = 0, usernameCapacity = 0, domainCapacity = 0, passwordCapacity = 0;
         try
@@ -128,7 +140,7 @@ public sealed class WindowsUserVerificationService : IWindowsUserVerificationSer
             var info = new CredentialUiInfo
             {
                 Size = Marshal.SizeOf<CredentialUiInfo>(), Parent = ownerWindow,
-                Caption = "Windows identity verification", Message = purpose, Banner = 0
+                Caption = UiText.Get("Dialog.WindowsVerification"), Message = purpose, Banner = 0
             };
             uint package = 0;
             // Generic requests an actual password; it cannot be combined with SECURE_PROMPT.
@@ -166,20 +178,7 @@ public sealed class WindowsUserVerificationService : IWindowsUserVerificationSer
             if (!TrySplitAccount(usernameText, domainText, out var loginName, out var loginDomain))
                 return WindowsUserVerificationResult.Rejected;
             if (cancellationToken.IsCancellationRequested) return WindowsUserVerificationResult.Canceled;
-            // NETWORK verifies the password without caching it. NEW_CREDENTIALS would not prove authentication.
-            if (!LogonUser(loginName, loginDomain, password, NetworkLogon, DefaultProvider, out var token))
-            {
-                token?.Dispose();
-                return WindowsUserVerificationResult.Rejected;
-            }
-            using (token)
-            {
-                if (token.IsInvalid || token.IsClosed) return WindowsUserVerificationResult.Rejected;
-                using var authenticated = new WindowsIdentity(token.DangerousGetHandle());
-                if (cancellationToken.IsCancellationRequested) return WindowsUserVerificationResult.Canceled;
-                return IsSameUser(expectedUser, authenticated.User)
-                    ? WindowsUserVerificationResult.Verified : WindowsUserVerificationResult.Rejected;
-            }
+            return AuthenticatePassword(expectedUser, loginName, loginDomain, password, cancellationToken);
         }
         finally
         {
@@ -189,6 +188,87 @@ public sealed class WindowsUserVerificationService : IWindowsUserVerificationSer
             ClearAndFree(input, inputCapacity, coTaskMemory: false);
             ClearAndFree(output, outputBytes, coTaskMemory: true);
         }
+    }
+
+    private static WindowsUserVerificationResult VerifyLocalPassword(nint ownerWindow, string purpose,
+        SecurityIdentifier expectedUser, string localUsername, CancellationToken cancellationToken)
+    {
+        var accountName = $"{Environment.MachineName}\\{localUsername}";
+        if (accountName.Length >= LocalUsernameCharacters) return WindowsUserVerificationResult.Unavailable;
+        nint username = 0, password = 0;
+        try
+        {
+            username = AllocateCharacters(LocalUsernameCharacters);
+            password = AllocateCharacters(LocalPasswordCharacters);
+            Marshal.Copy(accountName.ToCharArray(), 0, username, accountName.Length);
+            if (cancellationToken.IsCancellationRequested) return WindowsUserVerificationResult.Canceled;
+
+            var info = new CredentialUiInfo
+            {
+                Size = Marshal.SizeOf<CredentialUiInfo>(), Parent = ownerWindow,
+                Caption = UiText.Get("Dialog.WindowsVerification"),
+                Message = UiText.Format("Dialog.LocalWindowsVerificationMessage", purpose, accountName), Banner = 0
+            };
+            // This password-only native dialog fixes the local account instead of listing cloud providers.
+            // It always requests fresh input and neither reads nor writes a saved Windows password.
+            var save = false;
+            var result = CredUIPromptForCredentials(ref info, $"oh-my-ssh:WindowsIdentity:{Guid.NewGuid():N}", 0, 0,
+                username, LocalUsernameCharacters, password, LocalPasswordCharacters, ref save, LocalPasswordPromptFlags);
+            if (cancellationToken.IsCancellationRequested || result == UserCanceled)
+                return WindowsUserVerificationResult.Canceled;
+            if (result != 0) return WindowsUserVerificationResult.Unavailable;
+            if (Marshal.ReadInt16(password) == 0) return WindowsUserVerificationResult.Rejected;
+
+            // Do not let an altered prompt result select another account or a Microsoft identity.
+            var returnedAccount = Marshal.PtrToStringUni(username) ?? string.Empty;
+            if (!TryGetLocalAccount(returnedAccount, Environment.MachineName, out var returnedUsername)
+                || !string.Equals(localUsername, returnedUsername, StringComparison.OrdinalIgnoreCase))
+                return WindowsUserVerificationResult.Rejected;
+
+            // A dot explicitly selects the local SAM, regardless of provider/account suggestions.
+            return AuthenticatePassword(expectedUser, localUsername, ".", password, cancellationToken);
+        }
+        finally
+        {
+            ClearAndFree(username, LocalUsernameCharacters * sizeof(char), coTaskMemory: false);
+            ClearAndFree(password, LocalPasswordCharacters * sizeof(char), coTaskMemory: false);
+        }
+    }
+
+    private static WindowsUserVerificationResult AuthenticatePassword(SecurityIdentifier expectedUser,
+        string loginName, string? loginDomain, nint password, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested) return WindowsUserVerificationResult.Canceled;
+        // NETWORK verifies the password without caching it. NEW_CREDENTIALS would not prove authentication.
+        if (!LogonUser(loginName, loginDomain, password, NetworkLogon, DefaultProvider, out var token))
+        {
+            token?.Dispose();
+            return WindowsUserVerificationResult.Rejected;
+        }
+        using (token)
+        {
+            if (token.IsInvalid || token.IsClosed) return WindowsUserVerificationResult.Rejected;
+            using var authenticated = new WindowsIdentity(token.DangerousGetHandle());
+            if (cancellationToken.IsCancellationRequested) return WindowsUserVerificationResult.Canceled;
+            return IsSameUser(expectedUser, authenticated.User)
+                ? WindowsUserVerificationResult.Verified : WindowsUserVerificationResult.Rejected;
+        }
+    }
+
+    private static bool TryGetLocalAccount(string? accountName, string? machineName, out string username)
+    {
+        username = string.Empty;
+        if (string.IsNullOrWhiteSpace(accountName) || string.IsNullOrWhiteSpace(machineName)
+            || accountName.Any(char.IsControl)) return false;
+        var separator = accountName.IndexOf('\\');
+        if (separator <= 0 || separator == accountName.Length - 1
+            || accountName.IndexOf('\\', separator + 1) >= 0) return false;
+        var prefix = accountName[..separator];
+        if (prefix != "." && !string.Equals(prefix, machineName, StringComparison.OrdinalIgnoreCase)) return false;
+        var candidate = accountName[(separator + 1)..];
+        if (string.IsNullOrWhiteSpace(candidate)) return false;
+        username = candidate;
+        return true;
     }
 
     private static bool IsSameUser(SecurityIdentifier? expected, SecurityIdentifier? authenticated)
@@ -261,6 +341,11 @@ public sealed class WindowsUserVerificationService : IWindowsUserVerificationSer
     [DllImport("credui.dll", EntryPoint = "CredUIPromptForWindowsCredentialsW", CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern uint CredUIPromptForWindowsCredentials(ref CredentialUiInfo info, uint authenticationError,
         ref uint authenticationPackage, nint input, uint inputBytes, out nint output, out uint outputBytes, nint save, uint flags);
+
+    [DllImport("credui.dll", EntryPoint = "CredUIPromptForCredentialsW", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern uint CredUIPromptForCredentials(ref CredentialUiInfo info, string target, nint context,
+        uint authenticationError, nint username, uint usernameCharacters, nint password, uint passwordCharacters,
+        [MarshalAs(UnmanagedType.Bool)] ref bool save, uint flags);
 
     [DllImport("credui.dll", EntryPoint = "CredPackAuthenticationBufferW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

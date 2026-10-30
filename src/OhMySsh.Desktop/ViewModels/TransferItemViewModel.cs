@@ -1,5 +1,5 @@
-using System.Globalization;
 using OhMySsh.Core.Models;
+using OhMySsh.Core.Localization;
 
 namespace OhMySsh.Desktop.ViewModels;
 
@@ -47,19 +47,19 @@ public sealed class TransferItemViewModel : ObservableObject
     public string DestinationPath { get; }
     public string FileName { get; }
     public TransferDirection Direction { get; }
-    public string DirectionLabel => Direction == TransferDirection.Upload ? "Envio" : "Download";
+    public string DirectionLabel => UiText.Get(Direction == TransferDirection.Upload ? "Vm.Transfer.Upload" : "Vm.Transfer.Download");
     public TransferState State => _state;
     public long BytesTransferred => _bytesTransferred;
     public long TotalBytes => _totalBytes;
     public bool HasKnownSize => _hasKnownSize;
     public double ProgressPercent => State == TransferState.Completed ? 100
         : TotalBytes <= 0 ? 0 : Math.Min(99.9, 100d * BytesTransferred / TotalBytes);
-    public string BytesLabel => $"{FormatBytes(BytesTransferred)} / {(HasKnownSize ? FormatBytes(TotalBytes) : "—")}";
+    public string BytesLabel => UiText.Format("Vm.Transfer.Bytes", FormatBytes(BytesTransferred), HasKnownSize ? FormatBytes(TotalBytes) : "—");
     public double BytesPerSecond => _bytesPerSecond;
     public TimeSpan? EstimatedRemaining => _estimatedRemaining;
     public TimeSpan Elapsed => _elapsed;
     public string SpeedLabel => State != TransferState.Running || _finalizing || Elapsed < MinimumRateInterval
-        ? "—" : $"{FormatBytes(BytesPerSecond)}/s";
+        ? "—" : UiText.Format("Vm.Transfer.Speed", FormatBytes(BytesPerSecond));
     public string RemainingTimeLabel => EstimatedRemaining is { } remaining ? FormatDuration(remaining, roundUp: true) : "—";
     public string ElapsedTimeLabel => State == TransferState.Queued ? "—" : FormatDuration(Elapsed);
     public string Error => _error;
@@ -73,14 +73,14 @@ public sealed class TransferItemViewModel : ObservableObject
     public string RemotePath => Direction == TransferDirection.Upload ? DestinationPath : SourcePath;
     public bool CanCancel => !_cancelRequested && !_finalizing && State is TransferState.Queued or TransferState.Running;
     public bool CanRetry => State is TransferState.Failed or TransferState.Canceled;
-    public string StatusLabel => _cancelRequested && State == TransferState.Running ? "Cancelando…" : State switch
+    public string StatusLabel => _cancelRequested && State == TransferState.Running ? UiText.Get("Vm.Transfer.Canceling") : State switch
     {
-        TransferState.Queued => "Na fila",
-        TransferState.Running when _finalizing => "Finalizando…",
-        TransferState.Running => "Transferindo",
-        TransferState.Completed => "Concluída",
-        TransferState.Failed => "Falhou",
-        _ => "Cancelada"
+        TransferState.Queued => UiText.Get("Vm.Transfer.Queued"),
+        TransferState.Running when _finalizing => UiText.Get("Vm.Transfer.Finalizing"),
+        TransferState.Running => UiText.Get("Vm.Transfer.Running"),
+        TransferState.Completed => UiText.Get("Vm.Transfer.Completed"),
+        TransferState.Failed => UiText.Get("Vm.Transfer.Failed"),
+        _ => UiText.Get("Vm.Transfer.Canceled")
     };
 
     internal CancellationTokenSource Cancellation { get; }
@@ -220,16 +220,16 @@ public sealed class TransferItemViewModel : ObservableObject
         double value = Math.Max(0, count);
         var unit = 0;
         while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
-        return $"{value.ToString(unit == 0 ? "N0" : "N1", CultureInfo.CurrentCulture)} {units[unit]}";
+        return $"{value.ToString(unit == 0 ? "N0" : "N1", UiText.Current.Culture)} {units[unit]}";
     }
 
     private static string FormatDuration(TimeSpan duration, bool roundUp = false)
     {
         var seconds = (long)(roundUp ? Math.Ceiling(duration.TotalSeconds) : Math.Floor(duration.TotalSeconds));
-        if (seconds >= 86400) return $"{seconds / 86400} d {seconds % 86400 / 3600:00} h";
-        if (seconds >= 3600) return $"{seconds / 3600} h {seconds % 3600 / 60:00} min";
-        if (seconds >= 60) return $"{seconds / 60} min {seconds % 60:00} s";
-        return $"{seconds} s";
+        if (seconds >= 86400) return UiText.Format("Vm.Duration.Days", seconds / 86400, seconds % 86400 / 3600);
+        if (seconds >= 3600) return UiText.Format("Vm.Duration.Hours", seconds / 3600, seconds % 3600 / 60);
+        if (seconds >= 60) return UiText.Format("Vm.Duration.Minutes", seconds / 60, seconds % 60);
+        return UiText.Format("Vm.Duration.Seconds", seconds);
     }
 
     private readonly record struct RateSample(TimeSpan Elapsed, long Bytes);

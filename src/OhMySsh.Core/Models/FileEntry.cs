@@ -1,11 +1,38 @@
-using System.Globalization;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using OhMySsh.Core.Localization;
 
 namespace OhMySsh.Core.Models;
 
 /// <summary>One file-system item, independent of the desktop UI or transport.</summary>
-public sealed record FileEntry
+public sealed record FileEntry : INotifyPropertyChanged, IUiLanguageObserver
 {
-    private static readonly CultureInfo DisplayCulture = CultureInfo.GetCultureInfo("pt-BR");
+    // Notification state lives outside record fields so subscribing never changes value equality.
+    private static readonly ConditionalWeakTable<FileEntry, NotificationState> Notifications = new();
+
+    public FileEntry() => UiText.Current.RegisterObserver(this);
+
+    private FileEntry(FileEntry original)
+    {
+        Name = original.Name;
+        FullPath = original.FullPath;
+        IsDirectory = original.IsDirectory;
+        Size = original.Size;
+        LastModified = original.LastModified;
+        UiText.Current.RegisterObserver(this);
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged
+    {
+        add => Notifications.GetValue(this, static _ => new NotificationState()).Handlers += value;
+        remove { if (Notifications.TryGetValue(this, out var state)) state.Handlers -= value; }
+    }
+
+    public void OnLanguageChanged()
+    {
+        if (Notifications.TryGetValue(this, out var state))
+            state.Handlers?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
+    }
 
     public string Name { get; init; } = string.Empty;
     public string FullPath { get; init; } = string.Empty;
@@ -42,20 +69,25 @@ public sealed record FileEntry
                 unit++;
             }
 
-            return string.Concat(value.ToString(unit == 0 ? "N0" : "N1", DisplayCulture), " ", units[unit]);
+            return string.Concat(value.ToString(unit == 0 ? "N0" : "N1", UiText.Current.Culture), " ", units[unit]);
         }
     }
 
     public string ModifiedLabel => LastModified == default
         ? "—"
-        : LastModified.ToString("dd/MM/yyyy HH:mm", DisplayCulture);
+        : LastModified.ToString("g", UiText.Current.Culture);
 
     public string TypeLabel => IsDirectory
-        ? "Pasta"
+        ? UiText.Get("Vm.File.Folder")
         : string.IsNullOrEmpty(Extension)
-            ? "Arquivo"
-            : $"Arquivo {Extension.TrimStart('.').ToUpperInvariant()}";
+            ? UiText.Get("Vm.File.File")
+            : UiText.Format("Vm.File.Extension", Extension.TrimStart('.').ToUpperInvariant());
 
     /// <summary>A folder or document glyph for the Segoe Fluent Icons font.</summary>
     public string IconGlyph => IsDirectory ? "\uE8B7" : "\uE8A5";
+
+    private sealed class NotificationState
+    {
+        public PropertyChangedEventHandler? Handlers;
+    }
 }

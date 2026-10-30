@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using OhMySsh.Core.Models;
+using OhMySsh.Core.Localization;
 
 namespace OhMySsh.Desktop.ViewModels;
 
@@ -9,6 +10,17 @@ namespace OhMySsh.Desktop.ViewModels;
 internal static class ConnectionDraftValidator
 {
     public static bool TryCreate(
+        string? name, string? host, string? portText, string? username, string? privateKeyPath,
+        ConnectionProtocol protocol, string group, out ConnectionProfile? profile, out string error,
+        string? timeoutText = null)
+    {
+        var valid = TryCreateWithErrorKey(name, host, portText, username, privateKeyPath, protocol, group,
+            out profile, out var errorKey, timeoutText);
+        error = valid ? string.Empty : UiText.Get(errorKey);
+        return valid;
+    }
+
+    public static bool TryCreateWithErrorKey(
         string? name,
         string? host,
         string? portText,
@@ -28,14 +40,14 @@ internal static class ConnectionDraftValidator
 
         if (normalizedHost.Length == 0)
         {
-            error = "Enter the server hostname or IP address.";
+            error = "Vm.Validation.HostRequired";
             return false;
         }
 
         if (normalizedHost.Length > 255 || normalizedHost.Any(character => char.IsWhiteSpace(character) || char.IsControl(character))
             || normalizedHost.Contains("://", StringComparison.Ordinal) || normalizedHost.IndexOfAny(['/', '\\', '?', '#', '@']) >= 0)
         {
-            error = "Enter only the hostname or IP address, without a protocol, username, or path.";
+            error = "Vm.Validation.HostOnly";
             return false;
         }
 
@@ -45,7 +57,7 @@ internal static class ConnectionDraftValidator
                 || !IPAddress.TryParse(normalizedHost[1..^1], out var bracketedAddress)
                 || bracketedAddress.AddressFamily != AddressFamily.InterNetworkV6)
             {
-                error = "Use brackets only around a valid IPv6 address, without the port.";
+                error = "Vm.Validation.Ipv6";
                 return false;
             }
 
@@ -54,44 +66,44 @@ internal static class ConnectionDraftValidator
 
         if (normalizedHost.Contains(':') && !IPAddress.TryParse(normalizedHost, out _))
         {
-            error = "Enter the port separately from the server address.";
+            error = "Vm.Validation.SeparatePort";
             return false;
         }
 
         if (!IPAddress.TryParse(normalizedHost, out _) && Uri.CheckHostName(normalizedHost) != UriHostNameType.Dns)
         {
-            error = "Enter a valid IP address or hostname, such as server.example.com.";
+            error = "Vm.Validation.ValidHost";
             return false;
         }
 
         if (!int.TryParse(portText?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var port) || port is < 1 or > 65535)
         {
-            error = "Enter a port between 1 and 65535.";
+            error = "Vm.Validation.Port";
             return false;
         }
 
         if (normalizedUsername.Length == 0 || normalizedUsername.Any(character => char.IsWhiteSpace(character) || char.IsControl(character)))
         {
-            error = "Enter the connection username without spaces or line breaks.";
+            error = "Vm.Validation.Username";
             return false;
         }
 
         var normalizedName = string.IsNullOrWhiteSpace(name) ? normalizedHost : name.Trim();
         if (normalizedName.Length > 100 || normalizedName.Any(char.IsControl))
         {
-            error = "Use a VPS name of up to 100 characters without line breaks.";
+            error = "Vm.Validation.Name";
             return false;
         }
 
         if (!Enum.IsDefined(protocol))
         {
-            error = "Choose a valid connection protocol.";
+            error = "Vm.Validation.Protocol";
             return false;
         }
 
         if (normalizedKeyPath.Any(char.IsControl))
         {
-            error = "The private-key path must not contain line breaks or control characters.";
+            error = "Vm.Validation.KeyPath";
             return false;
         }
 
@@ -99,7 +111,7 @@ internal static class ConnectionDraftValidator
         if (timeoutText is not null && (!int.TryParse(timeoutText.Trim(), NumberStyles.None,
             CultureInfo.InvariantCulture, out timeout) || timeout is < 1 or > 300))
         {
-            error = "Enter a connection timeout between 1 and 300 seconds.";
+            error = "Vm.Validation.Timeout";
             return false;
         }
 
