@@ -17,7 +17,9 @@ public sealed class TransferItemViewModel : ObservableObject
     private TransferState _state;
     private long _bytesTransferred;
     private long _totalBytes;
+    private bool _hasKnownSize;
     private string _error = string.Empty;
+    private TransferFailureDetails? _failureDetails;
     private bool _finalizing;
     private bool _cancelRequested;
     private long? _startedAt;
@@ -49,9 +51,10 @@ public sealed class TransferItemViewModel : ObservableObject
     public TransferState State => _state;
     public long BytesTransferred => _bytesTransferred;
     public long TotalBytes => _totalBytes;
+    public bool HasKnownSize => _hasKnownSize;
     public double ProgressPercent => State == TransferState.Completed ? 100
         : TotalBytes <= 0 ? 0 : Math.Min(99.9, 100d * BytesTransferred / TotalBytes);
-    public string BytesLabel => $"{FormatBytes(BytesTransferred)} / {FormatBytes(TotalBytes)}";
+    public string BytesLabel => $"{FormatBytes(BytesTransferred)} / {(HasKnownSize ? FormatBytes(TotalBytes) : "—")}";
     public double BytesPerSecond => _bytesPerSecond;
     public TimeSpan? EstimatedRemaining => _estimatedRemaining;
     public TimeSpan Elapsed => _elapsed;
@@ -60,6 +63,14 @@ public sealed class TransferItemViewModel : ObservableObject
     public string RemainingTimeLabel => EstimatedRemaining is { } remaining ? FormatDuration(remaining, roundUp: true) : "—";
     public string ElapsedTimeLabel => State == TransferState.Queued ? "—" : FormatDuration(Elapsed);
     public string Error => _error;
+    public bool HasFailureDetails => State == TransferState.Failed && _failureDetails is not null;
+    public string FailureSummary => _failureDetails?.Summary ?? string.Empty;
+    public string FailureReason => _failureDetails?.Reason ?? string.Empty;
+    public string SuggestedAction => _failureDetails?.SuggestedAction ?? string.Empty;
+    public bool IsCompleted => State == TransferState.Completed;
+    public bool IsCompletedDownload => IsCompleted && Direction == TransferDirection.Download;
+    public string LocalPath => Direction == TransferDirection.Upload ? SourcePath : DestinationPath;
+    public string RemotePath => Direction == TransferDirection.Upload ? DestinationPath : SourcePath;
     public bool CanCancel => !_cancelRequested && !_finalizing && State is TransferState.Queued or TransferState.Running;
     public bool CanRetry => State is TransferState.Failed or TransferState.Canceled;
     public string StatusLabel => _cancelRequested && State == TransferState.Running ? "Cancelando…" : State switch
@@ -94,11 +105,35 @@ public sealed class TransferItemViewModel : ObservableObject
             _rateSamples.Add(new RateSample(TimeSpan.Zero, BytesTransferred));
         }
         _state = state;
-        _error = error;
+        // Never retain an arbitrary upstream message, even through the legacy state setter.
+        _failureDetails = state == TransferState.Failed ? _failureDetails ?? TransferFailureDetails.Generic : null;
+        _error = _failureDetails?.DiagnosticMessage ?? string.Empty;
         if (state == TransferState.Completed) _bytesTransferred = _totalBytes;
         if (state != TransferState.Running) { _bytesPerSecond = 0; _estimatedRemaining = null; }
         OnPropertyChanged(nameof(State));
         OnPropertyChanged(nameof(Error));
+        OnPropertyChanged(nameof(HasFailureDetails));
+        OnPropertyChanged(nameof(FailureSummary));
+        OnPropertyChanged(nameof(FailureReason));
+        OnPropertyChanged(nameof(SuggestedAction));
+        OnPropertyChanged(nameof(IsCompleted));
+        OnPropertyChanged(nameof(IsCompletedDownload));
+        NotifyProgress();
+    }
+
+    /// <summary>Classifies a failure without retaining exception messages, inner exceptions, or credentials.</summary>
+    internal void SetFailure(Exception exception)
+    {
+        _failureDetails = TransferFailureDetails.FromException(exception);
+        SetState(TransferState.Failed);
+    }
+
+    /// <summary>Sets a known size hint, including an empty file, before streaming begins.</summary>
+    internal void SetExpectedSize(long bytes)
+    {
+        if (bytes < 0) return;
+        _hasKnownSize = true;
+        _totalBytes = bytes;
         NotifyProgress();
     }
 
@@ -106,6 +141,7 @@ public sealed class TransferItemViewModel : ObservableObject
     {
         if (_finalizing && !progress.IsFinalizing) return;
         var previousBytes = _bytesTransferred;
+        _hasKnownSize = true;
         _totalBytes = Math.Max(0, progress.TotalBytes);
         _bytesTransferred = Math.Clamp(progress.BytesTransferred, 0, _totalBytes);
         _finalizing |= progress.IsFinalizing;
@@ -159,6 +195,7 @@ public sealed class TransferItemViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(BytesTransferred));
         OnPropertyChanged(nameof(TotalBytes));
+        OnPropertyChanged(nameof(HasKnownSize));
         OnPropertyChanged(nameof(ProgressPercent));
         OnPropertyChanged(nameof(BytesLabel));
         OnPropertyChanged(nameof(CanCancel));

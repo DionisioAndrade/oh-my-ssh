@@ -38,6 +38,10 @@ Unknown host identities display the hostname, port, algorithm, and SHA-256 finge
 
 Connection failures use typed codes and safe English messages. Application-generated logs do not include credential objects, key contents, raw transport exceptions, or command output. Native strings retained by PasswordBox, SSH.NET, and Windows APIs cannot be guaranteed to be erased from process memory; disposal releases references and network resources.
 
+Explicit disclosure in `SshCredentialsWindow` is separate from transport credential reuse. Each reveal/copy request captures its dialog generation, authenticates through `IWindowsUserVerificationService`, and then rechecks cancellation, visibility, lifecycle, and native foreground ownership. The native adapter collects a Windows password, validates it with `LogonUser`, and requires the returned token's SID to match the process user; prompt success alone never authorizes disclosure. Late or rejected results cannot populate a closed, edited, or inactive dialog. The temporary display clears on hide, deactivation, edit, connect, and close, with a 15-second timeout and no undo/selection copy path.
+
+`CredentialClipboardService` handles deliberate secret copies separately from address copies. Secret entries include history/cloud opt-out metadata and an ownership marker. Cleanup is registered before clipboard publication, since an OLE flush failure can leave already-published data in place. A dispatcher timer attempts to clear only expired owned entries after 30 seconds without retaining or reading back the secret, preserving earlier pending markers when a subsequent copy fails. Raw private-key metadata is not echoed in the authentication dialog; existing non-secret profile fields and opt-in vault connection behavior remain separate and unchanged.
+
 MVVM keeps search, selection, persistence, and navigation outside XAML. Code-behind handles window interactions: focus, keyboard input, double-clicks, resizing, and the system tray. Visual resources live in `Themes/Workbench.xaml`.
 
 ## Fluent appearance
@@ -49,6 +53,8 @@ Regular windows inherit their theme from the application. Setting `Window.ThemeM
 ## Persistence
 
 `JsonConnectionProfileStore` is an initial implementation without external dependencies. Each write uses a temporary file in the same directory and replaces the destination after serialization and flushing. Read failures block profile changes in the interface to prevent overwriting a recoverable file with an empty list. A single application instance per Windows session prevents concurrent writers during normal use.
+
+On Windows, the final profile-file replacement tolerates brief access, sharing, or lock denials with up to five attempts and cancellation-aware delays of 40, 80, 160, and 320 milliseconds. It reuses the same serialized staging file and does not delete the existing destination, change permissions, or clear read-only attributes. Read-only and directory destinations fail immediately; other persistent denials still propagate after the retry budget. Cancellation before a replacement attempt preserves the previous file and runs staging cleanup.
 
 SQLite should be introduced when transfer and execution history requires queries and transactions across entities. Migration should import JSON profiles, preserve the original file, and validate IDs. Credentials already use the Windows credential store and remain separate from profiles and future history.
 
@@ -66,6 +72,12 @@ Both transfer directions stream through bounded buffers into staging files in th
 
 `TransferQueueView` renders the same queue in the file workspace and the dedicated transfers page, preserving the native Fluent control styles and shared theme brushes.
 
+Each ViewModel owns its own `ListCollectionView` for transfer filtering. Queued and running jobs share the active filter, while the pending summary is calculated from the complete queue. Size hints distinguish a known empty file from an unknown size and are replaced by streaming progress. State changes refresh the filtered view; timing and byte updates refresh metrics without rebuilding or scrolling the listing.
+
+Multi-file selection, the native multi-file picker, and native file drops share one batch-upload path. The batch captures the session and loaded directory before asynchronous metadata inspection, deduplicates local paths, and adds validated jobs in chunks without blocking the dispatcher. A batch generation token rejects additions after cancel-all or session changes. Files remain serial; directories are explicitly unsupported. WPF code-behind handles selection and drag gestures, while the ViewModel decides whether and where uploads can be queued.
+
+Transfer failures are classified by typed error code or exception category into static safe descriptions and suggested actions. `TransferDetailsWindow` renders a single failed job using native Fluent resources. No upstream exception message is retained in a job or displayed in the dialog. Completed-job shortcuts derive paths from the immutable job, validate its membership and state, and use the desktop interaction service. File selection uses structured Windows Shell APIs instead of constructing a command line; asynchronous Shell operations run on a short-lived STA thread.
+
 `TransferItemViewModel` calculates speed and remaining time from a bounded recent sample window using monotonic `TimeProvider` timestamps. A dispatcher timer refreshes running-job timing when byte progress stops; terminal jobs freeze their elapsed duration. Waiting in the queue is excluded. Unknown estimates are represented explicitly rather than displaying a misleading zero.
 
 Queue pause gates job admission without interrupting the current transfer. Cancel-all cancels pending work before it can start, while atomic finalization remains authoritative. Clearing completed history detaches row notifications and never deletes files. A retry creates a fresh job from the original immutable paths and profile settings, requires a matching active endpoint, and repeats existence checks and overwrite confirmation. Failed rows remain independent of the new attempt.
@@ -81,5 +93,9 @@ Queue pause gates job admission without interrupting the current transfer. Cance
 The application contains no fake adapters or simulated connected states. Profiles used in screenshots and verification are fixtures belonging to the verifier and are never inserted into the user's profile store.
 
 ## Verification
+
+`tools/Verify-Launcher.ps1` checks the startup script with GUID-scoped named events and mutexes, extracting only its helper functions. It covers existing-instance activation, delayed startup, concurrent launchers, and gate release after build or launch failures without compiling or opening the real application. The checks run on Windows PowerShell 5.1 and PowerShell 7.
+
+The WPF verification script builds into `.local/verification-build` so it does not replace binaries in the application's normal output directory. Test data and reports remain in separate `.local/verify-*` directories. Persistence checks exercise short and persistent replacement locks, cancellation, read-only files, and preservation of existing JSON in the actual workspace.
 
 `scripts/Verify-OhMySsh.ps1` runs the executable WPF verification suite using isolated profiles and QA-only session doubles. `scripts/Verify-Ssh.ps1` builds a separate SSH/SFTP integration executable and starts an isolated Python AsyncSSH server on loopback. The fixture uses temporary keys, credentials, and a controlled SFTP filesystem under `.local`, without modifying OpenSSH configuration, installing a Windows service, or contacting a VPS. See [SSH setup and verification](ssh-connections.md) and [SFTP transfers](sftp-transfers.md) for commands, prerequisites, and coverage.

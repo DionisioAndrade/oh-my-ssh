@@ -111,6 +111,7 @@ internal sealed partial class VerificationRunner(Application application, string
 
         await CheckAsync("Fixtures: isolated QA data", CreateFixturesAsync);
         await CheckAsync("Profiles: persistence and loading of every field", VerifyProfileRoundtripAsync);
+        await CheckAsync("Profiles: replacement contention, cancellation, and permanent errors", VerifyProfileReplacementAsync);
         await CheckAsync("Profiles: create, edit, search, favorite, and delete", VerifyProfileCrudAsync);
         await CheckAsync("VPS: creation, editing, and favorites survive restart", VerifySavedVpsLifecycleAsync);
         await CheckAsync("VPS: copyable SSH command with escaped arguments and apostrophes", VerifySshCommandCopyAsync);
@@ -123,6 +124,10 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("Connection: remote loss, stale callbacks, retry, and shutdown", VerifyConnectionLossAndShutdownAsync);
         await CheckAsync("Connection: English diagnostic messages and sanitized failures", VerifyEnglishConnectionDiagnosticsAsync);
         await CheckAsync("SSH dialogs: secrets, manual credentials, trust decisions, and themes", VerifySshDialogsAsync);
+        await CheckAsync("SSH disclosure: masked fields, Windows approval, and exact address copying", VerifyCredentialDisclosureBoundaryAsync);
+        await CheckAsync("SSH disclosure lifecycle: independent approval, expiry, edits, and late results", VerifyCredentialDisclosureLifecycleAsync);
+        await CheckAsync("Windows credential protection: native contracts and clipboard privacy metadata", VerifyWindowsCredentialProtectionAsync);
+        await CheckAsync("Protected clipboard: failed publication retains bounded owned-entry cleanup", VerifyCredentialClipboardPublicationAsync);
         await CheckAsync("SSH prompts: cancellation closes pending credential and host dialogs", VerifyPromptCancellationAsync);
         await CheckAsync("SFTP browser: initialization, failed navigation, and stale results", VerifyRemoteBrowsingAsync);
         await CheckAsync("SFTP queue: serial work, progress, cancellation, and profile isolation", VerifyTransferQueueAsync);
@@ -131,6 +136,10 @@ internal sealed partial class VerificationRunner(Application application, string
         await CheckAsync("Transfer metrics: monotonic speed, remaining time, stalls, and terminal states", VerifyTransferMetricsAsync);
         await CheckAsync("Transfer queue controls: pause, resume, cancel all, and clear completed", VerifyTransferQueueControlsAsync);
         await CheckAsync("Transfer retry: captured targets, confirmation, reconnection, and source failures", VerifyTransferRetryAsync);
+        await CheckAsync("Transfer failures: safe per-file reasons, actions, and native details", VerifyTransferFailureDetailsAsync);
+        await CheckAsync("Transfer shortcuts: completed local and remote targets", VerifyCompletedTransferActionsAsync);
+        await CheckAsync("Transfer filters: live states and full-queue pending volume", VerifyTransferFiltersAndSummaryAsync);
+        await CheckAsync("Transfer batch: multiple selection, picker, drop, and captured targets", VerifyTransferBatchUploadsAsync);
         await CheckAsync("SFTP interface: populated remote files and queue in both themes", CaptureSftpWorkspaceAsync);
         await CheckAsync("XAML: empty and saved connection center in both themes", async () =>
         {
@@ -1274,7 +1283,11 @@ internal sealed class RecordingInteractions : IDesktopInteractionService
     public bool AllowDelete { get; set; } = true;
     public int ConfirmDeleteCalls { get; private set; }
     public Queue<string?> UploadFiles { get; } = new();
+    public Queue<IReadOnlyList<string>> UploadFileBatches { get; } = new();
     public Queue<string?> DownloadFiles { get; } = new();
+    public List<string> OpenedTransferFolders { get; } = [];
+    public List<string> RevealedTransferFiles { get; } = [];
+    public List<TransferItemViewModel> TransferDetailsRequests { get; } = [];
     public bool AllowOverwrite { get; set; }
     public int OverwriteCalls { get; private set; }
     public Func<string, bool, CancellationToken, Task<bool>>? OverwriteHandler { get; set; }
@@ -1291,6 +1304,9 @@ internal sealed class RecordingInteractions : IDesktopInteractionService
     }
     public string? PickLocalFolder(string initialPath) => null;
     public string? PickUploadFile(string initialDirectory) => UploadFiles.TryDequeue(out var path) ? path : null;
+    public IReadOnlyList<string> PickUploadFiles(string initialDirectory)
+        => UploadFileBatches.TryDequeue(out var batch) ? batch
+            : PickUploadFile(initialDirectory) is { } path ? [path] : [];
     public string? PickDownloadFile(string suggestedFileName, string initialDirectory) => DownloadFiles.TryDequeue(out var path) ? path : null;
     public Task<bool> ConfirmOverwriteAsync(string destination, bool isRemote, CancellationToken cancellationToken = default)
     {
@@ -1299,6 +1315,9 @@ internal sealed class RecordingInteractions : IDesktopInteractionService
     }
     public void ShowInformation(string title, string message) => Messages.Add($"{title}: {message}");
     public void CopyToClipboard(string text) => ClipboardText = text;
+    public void ShowTransferDetails(TransferItemViewModel job) => TransferDetailsRequests.Add(job);
+    public void OpenLocalFolder(string directory) => OpenedTransferFolders.Add(directory);
+    public void RevealLocalFile(string file) => RevealedTransferFiles.Add(file);
 }
 
 /// <summary>Prevents even the initial listing from inspecting the user's folders.</summary>

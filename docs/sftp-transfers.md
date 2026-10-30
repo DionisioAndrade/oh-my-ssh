@@ -14,12 +14,29 @@ Remote paths use POSIX `/` separators independently of Windows local paths. Unic
 
 ## Upload and download
 
-- To upload, select a local file and use the upload button above the local panel. If no file is selected, choose one in the native file dialog. The destination is the remote directory captured when the job is queued.
+- To upload, select one or more local files with Ctrl or Shift and use the upload button above the local panel. If no file is selected, choose files in the native multi-file dialog.
+- Drag files from the local panel or Windows Explorer onto the remote panel or transfer queue. A highlighted drop target appears when the active session can accept files. A drop adds uploads; it does not move or delete local files.
 - To download, select a remote file and use the download button. Choose its destination in the native save dialog.
 - Existing destinations require confirmation before replacement. Declining cancels that job and preserves the file.
 - Directories are navigable but cannot be transferred recursively in this delivery.
 
 The filename suggested for a download must be safe for Windows. Remote names cannot introduce path separators, reserved device names, or alternate data streams into the local destination. The application uses the destination chosen in the file dialog rather than treating a server-provided name as a local path.
+
+Each upload batch captures the active VPS and loaded remote directory before inspecting the files. Navigation or profile selection cannot redirect it. Duplicate local paths in a batch are ignored. Folders and malformed paths are skipped with a visible notice; valid file paths that become missing or inaccessible produce their own failed entries. Disconnect or cancel-all stops additions from an unfinished batch. A paused queue accepts batches without starting their files.
+
+## Filters and pending work
+
+Use the queue filter to show all transfers, active work, completed files, failures, or cancellations. Active work includes both queued and running jobs. Filters change only the visible rows; they do not change execution order or affect pause, cancel-all, or clearing completed entries.
+
+The pending summary counts all queued and running jobs, regardless of the selected filter, and shows the known bytes remaining after subtracting transferred bytes. Upload sizes come from local file metadata; download sizes initially come from the selected remote listing and update during streaming. A known empty file contributes zero bytes. Unknown sizes are identified separately rather than reported as empty files. Counts and sizes update as jobs progress or finish.
+
+## Failure details and completed-file shortcuts
+
+Use the information button on a failed row to open its details. The native dialog identifies the file, direction, VPS, source and destination, explains the failure, and suggests an action. Permission failures, missing paths, destination conflicts, unavailable SFTP, connection loss, unsafe names, unsupported atomic replacement, and common local I/O failures have specific guidance.
+
+User-facing reasons and diagnostic messages are selected from defined error categories. Upstream exception messages, inner exceptions, passwords, passphrases, and key contents are never copied into the details or logs. Unknown failures receive a generic explanation. The source and destination paths remain visible so the user can identify the affected operation.
+
+Completed downloads provide a direct shortcut to select the downloaded file in Windows File Explorer. Completed uploads provide a shortcut to their local source folder. The additional-actions menu offers opening the local folder and copying the exact remote path; downloaded files can also be selected from that menu. These actions do not reconnect to a VPS or execute a remote command. Missing or inaccessible local files produce a safe error rather than opening a different path.
 
 ## Progress and cancellation
 
@@ -61,7 +78,7 @@ If the connection disappears after the server commits a rename but before acknow
 
 The first command runs WPF regressions and captures both themes. The second uses the isolated loopback SSH/SFTP fixture, with file fixtures under `.local`. For first-time fixture dependency setup, use `./scripts/Verify-Ssh.ps1 -InstallFixtureDependencies`.
 
-Verification covers browsing, Unicode and spaces, empty files and directories, content comparison, bounded streaming, permission and missing-path errors, overwrite decisions, cancellation, partial-file cleanup, disconnection, and stale session results. Desktop checks also cover speed and time estimates with a controlled monotonic clock, pause and resume, cancel-all behavior, clearing successful rows, retry destination safety, and both visual themes. No real VPS or user SSH configuration is used.
+Verification covers browsing, Unicode and spaces, empty files and directories, content comparison, bounded streaming, permission and missing-path errors, overwrite decisions, cancellation, partial-file cleanup, disconnection, and stale session results. Desktop checks also cover speed and time estimates with a controlled monotonic clock, queue controls, retry destination safety, typed failure details, completed-file shortcuts, filters and pending totals, multi-file selection and drops, and both visual themes. Shell actions are recorded by QA doubles; verification does not launch File Explorer or access user files. No real VPS or user SSH configuration is used.
 
 ## Out of scope
 

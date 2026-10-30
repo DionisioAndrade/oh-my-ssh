@@ -20,6 +20,8 @@ public partial class MainWindow : Window
     private bool _updatingThemePicker;
     private bool _shutdownStarted;
     private bool _shutdownCompleted;
+    private Point? _localDragOrigin;
+    private FileEntry? _deferredLocalSelection;
 
     public MainWindow(MainViewModel viewModel, bool initializeOnLoad = true)
     {
@@ -278,6 +280,81 @@ public partial class MainWindow : Window
         {
             NavigateTo("connections");
         }
+    }
+
+    private void LocalFiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+            viewModel.UpdateSelectedLocalSelection(LocalFilesGrid.SelectedItems.OfType<FileEntry>());
+    }
+
+    private void LocalFiles_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _localDragOrigin = null;
+        _deferredLocalSelection = null;
+        if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject)?.Item is not FileEntry entry) return;
+        _localDragOrigin = e.GetPosition(LocalFilesGrid);
+        if (!entry.IsDirectory && LocalFilesGrid.SelectedItems.Count > 1
+            && LocalFilesGrid.SelectedItems.Contains(entry) && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            // Keep an existing multi-selection intact while deciding between a click and a drag.
+            _deferredLocalSelection = entry;
+            LocalFilesGrid.Focus();
+            e.Handled = true;
+        }
+    }
+
+    private void LocalFiles_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _localDragOrigin = null;
+        if (_deferredLocalSelection is not { } entry) return;
+        _deferredLocalSelection = null;
+        LocalFilesGrid.SelectedItems.Clear();
+        LocalFilesGrid.SelectedItem = entry;
+        e.Handled = true;
+    }
+
+    private void LocalFiles_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed || _localDragOrigin is not { } origin) return;
+        var position = e.GetPosition(LocalFilesGrid);
+        if (Math.Abs(position.X - origin.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(position.Y - origin.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        _localDragOrigin = null;
+        _deferredLocalSelection = null;
+        var paths = LocalFilesGrid.SelectedItems.OfType<FileEntry>()
+            .Select(entry => entry.FullPath).ToArray();
+        if (paths.Length == 0) return;
+        DragDrop.DoDragDrop(LocalFilesGrid, new DataObject(DataFormats.FileDrop, paths), DragDropEffects.Copy);
+        e.Handled = true;
+    }
+
+    private void UploadFiles_DragOver(object sender, DragEventArgs e)
+    {
+        var paths = TransferDropData.ReadFiles(e.Data);
+        var allowed = paths.Length > 0 && (e.AllowedEffects & DragDropEffects.Copy) != 0
+            && _viewModel.UploadFilesCommand.CanExecute(paths);
+        e.Effects = allowed ? DragDropEffects.Copy : DragDropEffects.None;
+        RemoteDropOverlay.Visibility = allowed ? Visibility.Visible : Visibility.Collapsed;
+        e.Handled = true;
+    }
+
+    private void UploadFiles_Drop(object sender, DragEventArgs e)
+    {
+        RemoteDropOverlay.Visibility = Visibility.Collapsed;
+        var paths = TransferDropData.ReadFiles(e.Data);
+        var allowed = paths.Length > 0 && (e.AllowedEffects & DragDropEffects.Copy) != 0
+            && _viewModel.UploadFilesCommand.CanExecute(paths);
+        e.Effects = allowed ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+        if (allowed) _viewModel.UploadFilesCommand.Execute(paths);
+    }
+
+    private void UploadFiles_DragLeave(object sender, DragEventArgs e)
+    {
+        var point = e.GetPosition(RemoteFilesPanel);
+        if (point.X < 0 || point.Y < 0 || point.X > RemoteFilesPanel.ActualWidth || point.Y > RemoteFilesPanel.ActualHeight)
+            RemoteDropOverlay.Visibility = Visibility.Collapsed;
     }
 
     private void LocalFiles_DoubleClick(object sender, MouseButtonEventArgs e)

@@ -225,7 +225,8 @@ internal sealed partial class VerificationRunner
         };
         var service = new QaRemoteConnectionService { ConnectHandler = (snapshot, _) =>
             Task.FromResult<IRemoteConnectionSession>(new QaRemoteConnectionSession(snapshot) { Files = files }) };
-        var vm = CreateViewModel(new MemoryProfileStore([profile]), new RecordingInteractions(), service);
+        var captureInteractions = new RecordingInteractions();
+        var vm = CreateViewModel(new MemoryProfileStore([profile]), captureInteractions, service);
         await vm.InitializeAsync();
         await vm.NavigateToAsync(_workspace);
         var window = new MainWindow(vm, initializeOnLoad: false);
@@ -235,6 +236,16 @@ internal sealed partial class VerificationRunner
         {
             await vm.ConnectCommand.ExecuteAsync(profile);
             await vm.RemoteInitialization;
+            var completedDestination = Path.Combine(_workspace, "result café, 空.txt");
+            captureInteractions.DownloadFiles.Enqueue(completedDestination);
+            files.DownloadHandler = async (_, destination, progress, _) =>
+            {
+                await File.WriteAllTextAsync(destination, "QA completed result");
+                progress?.Report(new TransferProgress(19, 19, IsFinalizing: true));
+            };
+            vm.SelectedRemoteEntry = vm.RemoteEntries.First(entry => !entry.IsDirectory);
+            await vm.DownloadCommand.ExecuteAsync();
+            await vm.WaitForTransfersAsync();
             vm.SelectedLocalEntry = QaRemoteFiles.Entry("manifest.json", Path.Combine(_workspace, "manifest.json"));
             await vm.UploadCommand.ExecuteAsync();
             await vm.WaitForTransfersAsync();
@@ -262,6 +273,36 @@ internal sealed partial class VerificationRunner
                 await SettleLayoutAsync(window);
                 RequireQueueControlsVisible(window);
                 Capture(window, $"sftp-queue-{suffix}.png");
+                var completed = vm.TransferJobs.First(job => job.State == TransferState.Completed);
+                var actions = FindVisualChild<Button>(window, button => button.IsVisible
+                    && ReferenceEquals(button.DataContext, completed) && button.ContextMenu is not null)
+                    ?? throw new InvalidOperationException("The completed-transfer action menu was missing.");
+                actions.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await SettleLayoutAsync(window);
+                var menu = actions.ContextMenu!;
+                try
+                {
+                    Require(menu.IsOpen && ReferenceEquals(menu.DataContext, completed),
+                        "The detached completion popup lost its originating transfer row.");
+                    var copy = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Copiar caminho remoto"));
+                    var folder = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Abrir pasta local"));
+                    var reveal = menu.Items.OfType<MenuItem>().Single(item => Equals(item.Header, "Selecionar arquivo baixado"));
+                    Require(ReferenceEquals(copy.Command, vm.CopyRemotePathCommand) && ReferenceEquals(copy.CommandParameter, completed)
+                        && ReferenceEquals(folder.Command, vm.OpenTransferFolderCommand)
+                        && ReferenceEquals(reveal.Command, vm.RevealDownloadedFileCommand) && reveal.IsVisible,
+                        "Completion menu commands did not resolve across the popup presentation tree.");
+                    copy.Command!.Execute(copy.CommandParameter);
+                    Require(captureInteractions.ClipboardText == completed.RemotePath,
+                        "The completion menu copied the current path instead of its transfer's remote path.");
+                }
+                finally { menu.IsOpen = false; }
+                vm.SelectedTransferFilter = TransferFilter.Failed;
+                await SettleLayoutAsync(window);
+                Capture(window, $"transfer-filter-failed-{suffix}.png");
+                vm.SelectedTransferFilter = TransferFilter.Completed;
+                await SettleLayoutAsync(window);
+                Capture(window, $"transfer-filter-completed-{suffix}.png");
+                vm.SelectedTransferFilter = TransferFilter.All;
             }
             window.Width = window.MinWidth;
             window.Height = window.MinHeight;
@@ -312,6 +353,9 @@ internal sealed partial class VerificationRunner
         }
         var grid = FindVisualChild<DataGrid>(window, item => item.Name == "TransferJobsGrid" && item.IsVisible)
             ?? throw new InvalidOperationException("The transfer queue was not visible.");
+        var filter = FindVisualChild<ComboBox>(window, item => item.Name == "TransferFilterBox" && item.IsVisible)
+            ?? throw new InvalidOperationException("The transfer state filter was not visible.");
+        RequireVisibleWithinWindow(window, filter, "transfer state filter");
         Require(grid.Columns.Any(column => Equals(column.Header, "Velocidade"))
             && grid.Columns.Any(column => Equals(column.Header, "Restante")), "Transfer speed or remaining-time columns were missing.");
     }

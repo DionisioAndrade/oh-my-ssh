@@ -239,7 +239,7 @@
                         <RowDefinition Height="6" />
                         <RowDefinition Height="1.6*" MinHeight="135" />
                         <RowDefinition Height="6" />
-                        <RowDefinition Height="1.65*" MinHeight="198" />
+                        <RowDefinition Height="1.65*" MinHeight="220" />
                     </Grid.RowDefinitions>
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -298,7 +298,10 @@
                                 </Grid>
                                 <Grid Grid.Row="2">
                                     <DataGrid x:Name="LocalFilesGrid" Style="{StaticResource FileGridStyle}" AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}" ItemsSource="{Binding LocalEntries}" SelectedItem="{Binding SelectedLocalEntry}"
-                                              MouseDoubleClick="LocalFiles_DoubleClick" PreviewKeyDown="LocalFiles_KeyDown" AutomationProperties.Name="Arquivos da pasta local">
+                                              SelectionMode="Extended" SelectionChanged="LocalFiles_SelectionChanged"
+                                              PreviewMouseLeftButtonDown="LocalFiles_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="LocalFiles_PreviewMouseLeftButtonUp" PreviewMouseMove="LocalFiles_PreviewMouseMove"
+                                              MouseDoubleClick="LocalFiles_DoubleClick" PreviewKeyDown="LocalFiles_KeyDown" AutomationProperties.Name="Arquivos da pasta local"
+                                              ToolTip="Use Ctrl ou Shift para selecionar vários arquivos. Arraste-os para o painel remoto ou para a fila de transferências.">
                                         <DataGrid.Columns>
                                             <DataGridTemplateColumn Header="Nome" Width="*" MinWidth="145" SortMemberPath="Name">
                                                 <DataGridTemplateColumn.CellTemplate>
@@ -322,7 +325,8 @@
                             </Grid>
                         </Border>
                         <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
-                        <Border x:Name="RemoteFilesPanel" Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                        <Border x:Name="RemoteFilesPanel" Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8"
+                                AllowDrop="True" PreviewDragOver="UploadFiles_DragOver" PreviewDrop="UploadFiles_Drop" DragLeave="UploadFiles_DragLeave">
                             <Grid>
                                 <Grid.RowDefinitions><RowDefinition Height="43" /><RowDefinition Height="47" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="27" /></Grid.RowDefinitions>
                                 <Grid Margin="13,0,9,0">
@@ -349,7 +353,10 @@
                                     </TextBox>
                                     <ProgressBar Grid.ColumnSpan="2" Height="2" VerticalAlignment="Bottom" IsIndeterminate="True" Visibility="{Binding IsRemoteLoading, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="Carregando pasta remota" />
                                 </Grid>
-                                <TextBlock x:Name="RemoteErrorText" Grid.Row="2" Text="{Binding RemoteError}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="11" Margin="12,0,12,8" Visibility="{Binding HasRemoteError, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
+                                <StackPanel Grid.Row="2">
+                                    <TextBlock x:Name="RemoteErrorText" Text="{Binding RemoteError}" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" FontSize="11" Margin="12,0,12,8" Visibility="{Binding HasRemoteError, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
+                                    <TextBlock Text="{Binding BatchUploadNotice}" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" Margin="12,0,12,8" Visibility="{Binding HasBatchUploadNotice, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
+                                </StackPanel>
                                 <Grid Grid.Row="3">
                                     <DataGrid x:Name="RemoteFilesGrid" Style="{StaticResource FileGridStyle}" AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}" ItemsSource="{Binding RemoteEntries}" SelectedItem="{Binding SelectedRemoteEntry}" MouseDoubleClick="RemoteFiles_DoubleClick" PreviewKeyDown="RemoteFiles_KeyDown" AutomationProperties.Name="Arquivos da pasta remota">
                                         <DataGrid.Columns>
@@ -365,6 +372,13 @@
                                 </Grid>
                                 <Border Grid.Row="4" BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,1,0,0" Padding="12,5">
                                     <TextBlock Text="{Binding RemoteSummary}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding ActiveConnectionEndpoint}" />
+                                </Border>
+                                <Border x:Name="RemoteDropOverlay" Grid.RowSpan="5" Visibility="Collapsed" IsHitTestVisible="False" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="7" Padding="24">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="&#xE898;" Style="{StaticResource GlyphStyle}" FontSize="32" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" Margin="0,0,0,12" />
+                                        <TextBlock Text="Solte para enviar à VPS" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" />
+                                        <TextBlock Text="Os arquivos serão adicionados à fila sequencial." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap" TextAlignment="Center" />
+                                    </StackPanel>
                                 </Border>
                             </Grid>
                         </Border>

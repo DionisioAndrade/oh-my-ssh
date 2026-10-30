@@ -1,28 +1,23 @@
 <UserControl x:Class="OhMySsh.Desktop.Views.TransferQueueView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             AllowDrop="True" PreviewDragOver="Files_DragOver" PreviewDrop="Files_Drop" DragLeave="Files_DragLeave">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Border BorderBrush="{DynamicResource MutedBorderBrush}" BorderThickness="0,0,0,1" Padding="12,7">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                <TextBlock FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Text" Value="Fila sequencial" />
-                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsTransferQueuePaused}" Value="True">
-                                    <Setter Property="Text" Value="Fila pausada" />
-                                    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <ComboBox x:Name="TransferFilterBox" ItemsSource="{Binding TransferFilters}" DisplayMemberPath="Label" SelectedValuePath="Filter"
+                              SelectedValue="{Binding SelectedTransferFilter, Mode=TwoWay}" Style="{StaticResource FluentComboBoxStyle}"
+                              Width="146" MinHeight="28" Padding="8,3" FontSize="11" AutomationProperties.Name="Filtrar transferências" />
+                    <TextBlock Text="{Binding PendingSummary}" ToolTip="{Binding PendingSummary}" FontSize="11" Margin="12,0,0,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}" MaxWidth="240" />
+                </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button x:Name="ToggleTransferQueueButton" Command="{Binding ToggleTransferQueueCommand}"
                             Style="{StaticResource SecondaryButtonStyle}" Padding="10,4" MinHeight="28" FontSize="11"
@@ -55,25 +50,22 @@
                 </StackPanel>
             </Grid>
         </Border>
-        <DataGrid x:Name="TransferJobsGrid" Grid.Row="1" ItemsSource="{Binding TransferJobs}" Style="{StaticResource FileGridStyle}"
+        <TextBlock Grid.Row="1" Text="{Binding BatchUploadNotice}" Margin="12,6,12,8" FontSize="11" TextWrapping="Wrap"
+                   Foreground="{DynamicResource TextSecondaryBrush}" Visibility="{Binding HasBatchUploadNotice, Converter={StaticResource BoolToVisibility}}" AutomationProperties.LiveSetting="Polite" />
+        <DataGrid x:Name="TransferJobsGrid" Grid.Row="2" ItemsSource="{Binding FilteredTransferJobs}" Style="{StaticResource FileGridStyle}"
                   AutoGenerateColumns="False" ColumnHeaderStyle="{StaticResource FileColumnHeaderStyle}" CellStyle="{StaticResource FileCellStyle}"
-                  RowHeight="58" IsReadOnly="True" CanUserSortColumns="False" AutomationProperties.Name="Fila de transferências">
+                  RowHeight="64" IsReadOnly="True" CanUserSortColumns="False" AutomationProperties.Name="Fila de transferências">
             <DataGrid.Columns>
-                <DataGridTemplateColumn Header="Arquivo / VPS" Width="160" MinWidth="130">
+                <DataGridTemplateColumn Header="Arquivo / VPS" Width="190" MinWidth="130">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
                                 <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" ToolTip="{Binding DestinationPath}" />
-                                <TextBlock Text="{Binding Profile.Host}" FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBlock FontSize="10" Foreground="{DynamicResource TextSecondaryBrush}"><Run Text="{Binding DirectionLabel, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Profile.Host, Mode=OneWay}" /></TextBlock>
                             </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Direção" Binding="{Binding DirectionLabel}" Width="84">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center" /></Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
                 <DataGridTemplateColumn Header="Progresso" Width="*" MinWidth="150">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -107,10 +99,11 @@
                         <DataTemplate><TextBlock Text="{Binding StatusLabel}" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="{Binding Error}" AutomationProperties.HelpText="{Binding Error}" /></DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="Ações" Width="138">
+                <DataGridTemplateColumn Header="Ações" Width="166">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Grid VerticalAlignment="Center" Margin="8,0,8,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="28" /></Grid.ColumnDefinitions>
                                 <Button Content="Cancelar" Command="{Binding DataContext.CancelTransferCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                         CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="8,4" MinHeight="28"
                                         Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibility}}"
@@ -121,15 +114,55 @@
                                         ToolTip="Conecte-se à mesma VPS para repetir esta operação. O destino será verificado novamente antes de sobrescrever."
                                         ToolTipService.ShowOnDisabled="True"
                                         AutomationProperties.Name="{Binding FileName, StringFormat='Tentar novamente a transferência de {0}'}" />
+                                <Button Content="Mostrar arquivo" Command="{Binding DataContext.RevealDownloadedFileCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                        CommandParameter="{Binding}" Style="{StaticResource SecondaryButtonStyle}" FontSize="11" Padding="6,4" MinHeight="28"
+                                        Visibility="{Binding IsCompletedDownload, Converter={StaticResource BoolToVisibility}}" ToolTip="Selecionar o arquivo baixado no Explorador de Arquivos" />
+                                <Button Content="Abrir pasta" Command="{Binding DataContext.OpenTransferFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                        CommandParameter="{Binding}" FontSize="11" Padding="6,4" MinHeight="28" ToolTip="Abrir a pasta local do arquivo enviado">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SecondaryButtonStyle}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers><MultiDataTrigger><MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding IsCompleted}" Value="True" /><Condition Binding="{Binding IsCompletedDownload}" Value="False" />
+                                            </MultiDataTrigger.Conditions><Setter Property="Visibility" Value="Visible" /></MultiDataTrigger></Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Grid.Column="1" Command="{Binding DataContext.ShowTransferDetailsCommand, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" CommandParameter="{Binding}"
+                                        Style="{StaticResource IconButtonStyle}" Width="28" Height="28" Padding="5" Margin="4,0,0,0"
+                                        Visibility="{Binding HasFailureDetails, Converter={StaticResource BoolToVisibility}}"
+                                        ToolTip="Ver motivo da falha e ação sugerida" AutomationProperties.Name="Detalhes do erro de transferência">
+                                    <TextBlock Text="&#xE946;" Style="{StaticResource GlyphStyle}" FontSize="14" />
+                                </Button>
+                                <Button Grid.Column="1" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
+                                        Click="TransferActions_Click" Style="{StaticResource IconButtonStyle}" Width="28" Height="28" Padding="5" Margin="4,0,0,0"
+                                        Visibility="{Binding IsCompleted, Converter={StaticResource BoolToVisibility}}" ToolTip="Mais ações" AutomationProperties.Name="Ações da transferência concluída">
+                                    <TextBlock Text="&#xE712;" Style="{StaticResource GlyphStyle}" FontSize="14" />
+                                    <Button.ContextMenu>
+                                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}" Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                                            <MenuItem Header="Abrir pasta local" Command="{Binding Tag.OpenTransferFolderCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}" />
+                                            <MenuItem Header="Selecionar arquivo baixado" Command="{Binding Tag.RevealDownloadedFileCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}"
+                                                      Visibility="{Binding IsCompletedDownload, Converter={StaticResource BoolToVisibility}}" />
+                                            <Separator />
+                                            <MenuItem Header="Copiar caminho remoto" Command="{Binding Tag.CopyRemotePathCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" CommandParameter="{Binding}" />
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
                             </Grid>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
-        <TextBlock Grid.Row="1" Text="Nenhuma transferência na fila. Envie ou baixe um arquivo para começar."
+        <TextBlock Grid.Row="2" Text="{Binding TransferEmptyMessage}"
                    Style="{StaticResource MutedTextStyle}" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
                    HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360" Margin="20,35,20,15" IsHitTestVisible="False"
-                   Visibility="{Binding HasTransfers, Converter={StaticResource InverseBoolToVisibility}}" />
+                   Visibility="{Binding HasVisibleTransfers, Converter={StaticResource InverseBoolToVisibility}}" />
+        <Border x:Name="TransferDropOverlay" Grid.RowSpan="3" Visibility="Collapsed" IsHitTestVisible="False" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="6" Padding="18">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Solte para adicionar os arquivos à fila" FontSize="17" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock Text="Um arquivo será enviado por vez à pasta remota atual." Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,7,0,0" TextWrapping="Wrap" TextAlignment="Center" />
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

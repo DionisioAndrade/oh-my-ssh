@@ -11,7 +11,22 @@ public interface IDesktopInteractionService
     void ShowInformation(string title, string message);
     void CopyToClipboard(string text);
     string? PickUploadFile(string initialDirectory) => null;
+    IReadOnlyList<string> PickUploadFiles(string initialDirectory)
+        => PickUploadFile(initialDirectory) is { } path ? [path] : [];
     string? PickDownloadFile(string suggestedFileName, string initialDirectory) => null;
+    void ShowTransferDetails(TransferItemViewModel job) { }
+    void OpenLocalFolder(string directory) { }
+    void RevealLocalFile(string file) { }
+    Task OpenLocalFolderAsync(string directory)
+    {
+        OpenLocalFolder(directory);
+        return Task.CompletedTask;
+    }
+    Task RevealLocalFileAsync(string file)
+    {
+        RevealLocalFile(file);
+        return Task.CompletedTask;
+    }
     Task<bool> ConfirmOverwriteAsync(string destination, bool isRemote, CancellationToken cancellationToken = default)
         => Task.FromResult(false);
 }

@@ -149,7 +149,7 @@
                              AutomationProperties.Name="Nome para salvar a VPS, opcional" />
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <Label Content="_Chave privada (opcional)" Target="{Binding ElementName=QuickKeyBox}"
+                    <Label Content="_Arquivo de chave (opcional)" Target="{Binding ElementName=QuickKeyBox}"
                            Style="{StaticResource QuickFieldLabelStyle}" />
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -160,7 +160,7 @@
                         <TextBox x:Name="QuickKeyBox"
                                  Text="{Binding ManualPrivateKeyPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource QuickTextBoxStyle}"
-                                 ToolTip="Selecione o arquivo de chave usado para acessar o servidor."
+                                 ToolTip="Caminho de um arquivo de chave privada, não a senha. Para usar senha, deixe este campo vazio; ela será solicitada ao conectar."
                                  AutomationProperties.Name="Caminho da chave privada, opcional" />
                         <Button Grid.Column="2" Style="{StaticResource SecondaryButtonStyle}" Width="36" Height="38" Padding="0"
                                 Click="BrowsePrivateKey_Click" ToolTip="Procurar chave privada"

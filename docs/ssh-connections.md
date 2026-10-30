@@ -8,6 +8,8 @@ Run oh-my-ssh on Windows with the .NET 10 desktop runtime, or install the .NET 1
 ./scripts/Start-OhMySsh.ps1
 ```
 
+If the application is already running, this script restores its existing window without rebuilding or disconnecting its VPS session. Close the application before rerunning the script to compile and load source changes. When no instance is running, the script builds the selected configuration, opens the native application, and waits briefly for its activation channel. Concurrent launcher scripts share a separate launch gate so they do not rebuild over a starting instance. An unready instance produces a bounded retry message rather than being stopped.
+
 ## Connect to a VPS
 
 1. Enter a hostname, SSH port, username, and protocol in the manual form, or choose a saved VPS.
@@ -25,7 +27,19 @@ Some SSH.NET handshake and private-key decoding stages use synchronous library w
 
 Saved profiles offer an explicit option to remember credentials in Windows Credential Manager. Credentials are saved only after authentication succeeds. Manual connections cannot remember credentials; saving a profile is a separate action.
 
-Profile JSON contains non-secret connection settings and the private-key path. Private-key contents, passwords, and passphrases are never written to that JSON file. Credential entries are scoped to the profile's connection settings. Editing the host, port, username, or key configuration does not reuse a credential for the old configuration. Failed cached credentials are invalidated before retry.
+Profile JSON contains non-secret connection settings and the private-key path. Secrets collected through the authentication dialog and private-key contents are never written to that JSON file. Credential entries are scoped to the profile's connection settings. Editing the host, port, username, or key configuration does not reuse a credential for the old configuration. Failed cached credentials are invalidated before retry.
+
+The private-key field is a file path, not a password field. Leave it empty for password authentication. The authentication dialog does not echo this metadata or put it in a tooltip. If a password was previously entered into the key-path field, edit the saved profile to remove that value and enter the password in the protected authentication prompt instead. Existing profile metadata is not automatically reinterpreted, migrated, or deleted.
+
+### Reveal and copy
+
+The authentication dialog starts with a masked password or passphrase. **Show** and **Copy password** (or **Copy passphrase**) require a fresh native Windows account-password check for each action. Only credentials validated for the same Windows user running the application authorize disclosure. Canceling, using another account, a failed password, an unsupported credential type, or an inactive/closed dialog leaves the secret hidden and does not copy it. This check protects disclosure; SSH connection and opt-in vault reuse keep their existing behavior.
+
+The check uses the Windows account password. Windows Hello PIN/biometric and passwordless-only accounts are not supported by this password-verification path; unavailable verification fails closed. The Windows password is used only for native local verification and is not stored by the application or sent to the VPS.
+
+Revealed text hides after 15 seconds, on focus loss, when the secret changes, or when connecting, canceling, or closing. The temporary display has no undo history or built-in selection/copy menu; use the guarded copy button. Explicit secret copies opt out of Windows clipboard history/cloud upload and schedule owned-entry cleanup after 30 seconds, retrying when the clipboard is busy. Cleanup is armed before publishing, including when Windows reports an error after partially publishing the copy. Earlier pending entries keep their own cleanup deadlines if a later copy fails. A later unrelated clipboard entry is preserved. Cleanup is best effort; other software can still read the current clipboard while its authorized secret entry exists, and application/native immutable string copies cannot be guaranteed to be erased from process memory.
+
+**Copy IP** copies the configured server address, including a hostname or IPv6 address, without the SSH username or port. It requires no Windows authentication and performs no DNS lookup. The disclosure controls operate on the password/passphrase entered in the current dialog; they do not read a private-key path as a secret or provide a new saved-vault inspection interface.
 
 The application does not load an SSH agent, OpenSSH configuration files, or the user's OpenSSH known_hosts file. This version supports password and private-key authentication; keyboard-interactive challenges and multi-factor authentication are outside this delivery.
 

@@ -107,7 +107,7 @@
                 </Grid>
 
                 <StackPanel x:Name="PrivateKeyPanel" Margin="0,20,0,0">
-                    <Label Content="_Chave privada (opcional)" Target="{Binding ElementName=PrivateKeyTextBox}"
+                    <Label Content="_Arquivo de chave privada (opcional)" Target="{Binding ElementName=PrivateKeyTextBox}"
                            Style="{StaticResource FieldLabelStyle}" />
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -120,7 +120,7 @@
                         <Button Grid.Column="2" Content="Procurar…" MinHeight="38" Padding="12,0"
                                 Style="{DynamicResource SecondaryButtonStyle}" Click="BrowsePrivateKey_Click" />
                     </Grid>
-                    <TextBlock Text="O perfil guarda apenas o caminho do arquivo de chave."
+                    <TextBlock Text="Este campo é o caminho de um arquivo, não a senha. Para usar senha, deixe-o vazio; ela será solicitada ao conectar."
                                Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>

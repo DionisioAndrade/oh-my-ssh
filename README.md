@@ -39,7 +39,9 @@ See [SSH setup and verification](docs/ssh-connections.md) for connection instruc
 
 ## SFTP files and transfers
 
-Browse the connected server's directories and upload or download individual files. The remote panel supports parent navigation, entered paths, refresh, Unicode filenames, sizes, and modification dates. A serial transfer queue displays progress, transfer speed, and estimated remaining time. Pause upcoming work, cancel individual files or the whole queue, retry failed or canceled transfers, and clear successful entries.
+Browse the connected server's directories, upload multiple selected or dropped files, and download individual files. The remote panel supports parent navigation, entered paths, refresh, Unicode filenames, sizes, and modification dates. A serial transfer queue displays progress, transfer speed, and estimated remaining time. Pause upcoming work, cancel individual files or the whole queue, retry failed or canceled transfers, and clear successful entries.
+
+Filter the queue by status and track pending files and remaining bytes. Each failed file includes a safe explanation and suggested action. Completed transfers provide shortcuts to the local folder, downloaded file, and remote path.
 
 Transfers use temporary files and safe finalization to preserve existing destinations on failure or cancellation. Replacements require confirmation; upload replacement also requires the server's atomic rename support. See [SFTP transfers](docs/sftp-transfers.md) for behavior, cancellation limits, and verification.
 
